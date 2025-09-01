@@ -68,10 +68,17 @@
       to   { opacity:1; transform:none; }
     }
 
-    /* Footer */
+    /* Footer fixieren */
     footer {
-      padding:12px; background:#fff; display:flex; justify-content:space-between;
-      align-items:center; border-top:1px solid #e2e8f0;
+      padding:12px;
+      background:#fff;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      border-top:1px solid #e2e8f0;
+
+      position: sticky;
+      bottom: 0;
     }
     footer button {
       padding:10px 16px; border:none; border-radius:8px;
@@ -175,11 +182,11 @@
     let queue = [];
     let recognition = null;
     let listening = false;
-    let swLocked = false; // blocke Erkennung während Audio
+    let swLocked = false;
 
     const total = steps.length;
 
-    /* ------------------ UI Elemente ------------------ */
+    /* ------------------ UI Elements ------------------ */
     const chat      = document.getElementById("chat");
     const player    = document.getElementById("player");
     const readyPing = document.getElementById("ready");
@@ -213,24 +220,17 @@
       bar.style.width = pct + "%";
     }
 
-    /* ------------------ Audio (echo-sicher) ------------------ */
+    /* ------------------ Audio Handling ------------------ */
     function playStep(step) {
-      // Schritt-Text in den Chat schreiben
       addMsg(step.text, "pallas");
-
       queue = [...step.audios];
-      swLocked = true;           // während Audio keine Erkennung
-      stopListeningSilently();   // Mikro pausieren
+      swLocked = true;
+      stopListeningSilently();
 
       playNext(async () => {
-        // Ready-Ping nach abgeschlossener PALLAS-Antwort
         try { await readyPing.play(); } catch(e) {}
-
-        // Mic zurück – mit kleinem Delay
         swLocked = false;
         setTimeout(() => { if (listening) startListening(); }, 200);
-
-        // Nächster Schritt
         idx++;
         updateProgress();
       });
@@ -259,7 +259,7 @@
       r.interimResults = false;
 
       r.onresult = (ev) => {
-        if (swLocked) return; // während Audio ignorieren
+        if (swLocked) return;
         for (let i = ev.resultIndex; i < ev.results.length; i++) {
           const res = ev.results[i];
           if (!res.isFinal) continue;
@@ -267,15 +267,12 @@
           const raw  = res[0].transcript || "";
           const text = normalize(raw);
 
-          // Nutzer-Äußerung in Chat
           addMsg(raw, "user");
-
           handleCommand(text);
         }
       };
 
       r.onend = () => {
-        // nur neu starten, wenn gewünscht und gerade kein Audio läuft
         if (listening && !swLocked) {
           try { r.start(); } catch {}
         }
@@ -311,16 +308,13 @@
     function handleCommand(text) {
       if (idx >= total) return;
 
-      // ---- Wiederholen: global verfügbar ----
       if (text.includes("nochmal")) {
         addMsg("Ok, nochmal.", "pallas");
         repeatSfx.play().catch(() => {});
-        // Gleichen Schritt erneut abspielen (ohne idx zu erhöhen)
         playStep(steps[idx]);
         return;
       }
 
-      // Normaler Schrittabgleich (Stichworte)
       const step = steps[idx];
       for (const p of step.phrases) {
         if (text.includes(p)) {
@@ -335,7 +329,6 @@
       if (listening) {
         stopListening();
       } else {
-        // frische Instanz erzwingen → verhindert Hänger
         recognition = null;
         startListening();
       }
