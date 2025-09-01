@@ -32,6 +32,7 @@
     .switch.on { background:#2a5d84; }
     .switch.on::after { left:23px; }
   </style>
+
   <link rel="manifest" href="manifest.json" />
   <script>
     if ("serviceWorker" in navigator) { navigator.serviceWorker.register("service-worker.js").catch(()=>{}); }
@@ -62,7 +63,7 @@
   </footer>
 
   <!-- Audio -->
-  <audio id="player" controls style="display:none"></audio>
+  <audio id="player" preload="auto" controls style="display:none"></audio>
   <audio id="ready"  preload="auto" src="1.mp3"></audio>
   <audio id="repeat" preload="auto" src="nochmal.mp3"></audio>
 
@@ -98,7 +99,7 @@
     const micDot=document.getElementById("micDot");
     const resetBtn=document.getElementById("reset");
     const precSwitch=document.getElementById("precSwitch");
-    let precision=false; // **nur hier** deklariert
+    let precision=false;
 
     /* ---------- Utils ---------- */
     function normalize(s=""){
@@ -133,6 +134,17 @@
       queue = [];
     }
 
+    // Ready-Ping sofort & „snappy“ abspielen
+    function playReadyNow(){
+      try {
+        readyPing.pause();
+        readyPing.currentTime = 0;
+        readyPing.playbackRate = 1.15;
+        readyPing.preservesPitch = true; // stabiler Klang
+        readyPing.play().catch(()=>{});
+      } catch(e) {}
+    }
+
     function playStepAt(index, {advance=true} = {}){
       const step = steps[index];
       addMsg(step.text, "pallas");
@@ -141,29 +153,42 @@
       swLocked = true;
       stopListeningSilently();
 
-      const afterAll = async () => {
-        try {
-          readyPing.pause();
-          readyPing.currentTime = 0;
-          readyPing.playbackRate = 1.15;
-          await readyPing.play();
-        } catch(e) {}
+      playNext(() => {
+        // falls aus irgendeinem Grund der ontimeupdate-Preroll nicht gegriffen hat:
+        playReadyNow();
         swLocked = false;
-        setTimeout(()=>{ if(listening) startListening(); }, 60);
+        setTimeout(()=>{ if(listening) startListening(); }, 30);
         if (advance) { if (index === idx) idx++; }
         updateProgress();
-      };
-
-      playNext(afterAll);
+      });
     }
 
     function playNext(done){
       if(queue.length===0){ done && done(); return; }
       const f = queue.shift();
       player.src = f;
-      player.onended = () => playNext(done);
-      player.onerror = () => playNext(done);
-      player.play().catch(()=>playNext(done));
+      player.preload = "auto";
+      let readyTriggered = false;
+
+      // Preroll: wenige ms vor Ende schon Ready-Ping starten, wenn dies die letzte Datei ist
+      player.ontimeupdate = () => {
+        if (readyTriggered) return;
+        if (queue.length===0 && player.duration && (player.duration - player.currentTime) <= 0.08) {
+          readyTriggered = true;
+          playReadyNow();
+        }
+      };
+
+      player.onended = () => {
+        if (queue.length>0) {
+          playNext(done);
+        } else {
+          done && done();
+        }
+      };
+      player.onerror = () => { if (queue.length>0) playNext(done); else done && done(); };
+
+      player.play().catch(()=>{ if (queue.length>0) playNext(done); else done && done(); });
     }
 
     /* ---------- Speech ---------- */
@@ -210,6 +235,7 @@
 
       if(precision && idx>0 && !text.includes("pallas")) return;
 
+      // Wiederholen
       if(isRepeat(text)){
         addMsg("Ok, nochmal.", "pallas");
         repeatSfx.play().catch(()=>{});
@@ -218,6 +244,7 @@
         return;
       }
 
+      // Normaler Ablauf
       const step=steps[idx];
       let matched=false;
       for(const phr of step.phrases){ if(fuzzyIncludes(text, phr)){ matched=true; break; } }
@@ -237,7 +264,17 @@
     /* ---------- Init ---------- */
     updateProgress();
     addMsg("Sag 'Hey PALLAS' um zu starten.", "pallas");
-    readyPing.load();
+
+    // Ready-Ping anwärmen beim ersten User-Klick (Mikro)
+    micBtn.addEventListener("click", ()=>{
+      try {
+        readyPing.load();
+        // optional „nudgen“ (nur einmal): kurz starten & sofort pausieren
+        if (readyPing.currentTime === 0) {
+          readyPing.play().then(()=>readyPing.pause()).catch(()=>{});
+        }
+      } catch(e) {}
+    }, { once:false });
   </script>
 </body>
 </html>
