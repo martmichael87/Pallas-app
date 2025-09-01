@@ -6,85 +6,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
-    :root {
-      --pallas:#2a5d84;
-      --bg:#eef3f8;
-      --bubble-user:#daf0ff;
-      --bubble-pallas:#ffffff;
-    }
-    body {
-      margin:0;
-      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-      background:var(--bg);
-      display:flex; flex-direction:column; height:100vh;
-    }
-    header {
-      background:var(--pallas); color:#fff; padding:14px 20px;
-      display:flex; align-items:center; gap:12px;
-      box-shadow:0 2px 6px rgba(0,0,0,.15);
-    }
+    :root { --pallas:#2a5d84; --bg:#eef3f8; --bubble-user:#daf0ff; --bubble-pallas:#ffffff; }
+    body { margin:0; font-family:'Segoe UI', Roboto, Arial, sans-serif; background:var(--bg); display:flex; flex-direction:column; height:100vh; }
+    header { background:var(--pallas); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(0,0,0,.15); }
     header h1 { margin:0; font-size:20px; font-weight:700; }
-
-    /* Avatar / Mic */
-    #logo {
-      width:48px; height:48px; border-radius:50%;
-      background:var(--pallas); display:grid; place-items:center; color:#fff;
-      position:relative;
-    }
-    #logo.listening::after {
-      content:""; position:absolute; inset:0; border-radius:50%;
-      border:2px solid rgba(42,93,132,.4); animation:pulse 1.6s infinite;
-    }
-    @keyframes pulse {
-      0%{transform:scale(1); opacity:.6;}
-      70%{transform:scale(1.4); opacity:0;}
-      100%{opacity:0;}
-    }
-
-    /* Progress */
+    #logo { width:48px; height:48px; border-radius:50%; background:var(--pallas); display:grid; place-items:center; color:#fff; position:relative; }
+    #logo.listening::after { content:""; position:absolute; inset:0; border-radius:50%; border:2px solid rgba(42,93,132,.4); animation:pulse 1.6s infinite; }
+    @keyframes pulse { 0%{transform:scale(1); opacity:.6;} 70%{transform:scale(1.4); opacity:0;} 100%{opacity:0;} }
     .progress { height:6px; background:#cbd5e1; width:100%; }
     .bar { height:100%; background:linear-gradient(90deg,#2a5d84,#3b7aa9); width:0%; transition:width .4s ease; }
-
-    /* Chat */
-    main {
-      flex:1; overflow-y:auto; padding:20px;
-      display:flex; flex-direction:column; gap:12px;
-    }
-    .msg {
-      max-width:70%; padding:12px 16px; border-radius:18px;
-      font-size:16px; line-height:1.4; animation:fadeIn .3s ease;
-      word-break:break-word;
-    }
-    .msg.user {
-      background:var(--bubble-user); align-self:flex-end;
-      border-bottom-right-radius:4px;
-    }
-    .msg.pallas {
-      background:var(--bubble-pallas); align-self:flex-start;
-      border-bottom-left-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,.08);
-    }
-    @keyframes fadeIn {
-      from { opacity:0; transform:translateY(10px); }
-      to   { opacity:1; transform:none; }
-    }
-
-    /* Footer fixieren */
-    footer {
-      padding:12px;
-      background:#fff;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      border-top:1px solid #e2e8f0;
-
-      position: sticky;
-      bottom: 0;
-    }
-    footer button {
-      padding:10px 16px; border:none; border-radius:8px;
-      background:var(--pallas); color:#fff; font-size:15px; cursor:pointer;
-    }
+    main { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; }
+    .msg { max-width:70%; padding:12px 16px; border-radius:18px; font-size:16px; line-height:1.4; animation:fadeIn .3s ease; word-break:break-word; }
+    .msg.user { background:var(--bubble-user); align-self:flex-end; border-bottom-right-radius:4px; }
+    .msg.pallas { background:var(--bubble-pallas); align-self:flex-start; border-bottom-left-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,.08); }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;} }
+    footer { padding:12px; background:#fff; display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; position:sticky; bottom:0; }
+    footer .left, footer .right { display:flex; gap:10px; align-items:center; }
+    footer button { padding:10px 16px; border:none; border-radius:8px; background:var(--pallas); color:#fff; font-size:15px; cursor:pointer; }
     footer button:hover { filter:brightness(.95); }
+    /* Präzisionsmodus Toggle */
+    .toggle { display:flex; align-items:center; gap:8px; font-size:14px; color:#173249; }
+    .switch { position:relative; width:44px; height:24px; background:#cbd5e1; border-radius:999px; cursor:pointer; }
+    .switch::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .2s ease; }
+    .switch.on { background:#2a5d84; }
+    .switch.on::after { left:23px; }
   </style>
 
   <!-- PWA: Manifest + Service Worker -->
@@ -101,313 +46,240 @@
     <h1>PALLAS – Pflegeassistenz</h1>
   </header>
 
-  <div class="progress">
-    <div id="bar" class="bar"></div>
-  </div>
+  <div class="progress"><div id="bar" class="bar"></div></div>
 
   <main id="chat"></main>
 
   <footer>
-    <button id="micToggle">🎤 Mikro an</button>
-    <button id="reset">🔄 Reset</button>
+    <div class="left">
+      <button id="micToggle">🎤 Mikro an</button>
+      <button id="reset">🔄 Reset</button>
+    </div>
+    <div class="right">
+      <div class="toggle" title="Wenn an, dann nur Befehle mit Präfix ‚Pallas …‘ (z. B. ‚Pallas weiter‘).">
+        <div id="precSwitch" class="switch"></div>
+        <span>Präzisionsmodus</span>
+      </div>
+    </div>
   </footer>
 
-  <!-- Audio-Player (Hauptausgabe + Ready-Ping + „nochmal“) -->
+  <!-- Audio-Player -->
   <audio id="player" controls style="display:none"></audio>
   <audio id="ready"  preload="auto" src="1.mp3"></audio>
   <audio id="repeat" preload="auto" src="nochmal.mp3"></audio>
 
   <script>
-    /* ------------------ Schritte / Dialog ------------------ */
+    /* ---------- Schritte ---------- */
     const steps = [
-      {
-        phrases: ["hey","pallas","hallo"],
-        audios:  ["1.mp3","2.mp3"],
-        text:    "Hallo, was kann ich für dich tun?"
-      },
-      {
-        // Noradrenalin robust: akzeptiert „nor adrenalin“, „nur adrenalin“, „nora“, „noradrenaline“ etc.
-        phrases: ["noradrenalin","nor adrenalin","nur adrenalin","nora","noradrenaline","nora adrenalin","perfusor"],
-        audios:  ["3.mp3"],
-        text:    "Alles klar, einen Noradrenalin Perfusor also. Welche Dosierung möchtest du vorbereiten?"
-      },
-      {
-        phrases: ["50","20 mikrogramm"],
-        audios:  ["4.mp3"],
-        text:    "In Ordnung. Du möchtest also eine 50ml Noradrenalinperfursor Spritze mit einer Dosierung von 20 Mikrogramm pro Milliliter vorbereiten, habe ich das richtig verstanden?"
-      },
-      {
-        phrases: ["ja","genau","richtig"],
-        audios:  ["5.mp3"],
-        text:    "Ok du benötigst dafür folgende Materialien: Ein Medikamententablett, Alkoholisches Desinfektionsmittel, Aufziehkanüle, Perfusorspritze, Brechampulle Noradrenalin 1mg auf 1 Milliliter, 50 ml NaCl, Perfusioleitung, Einmalhandschuhe und Abwurfbehälter. Wenn dir das zu schnell ging, sag einfach „Nochmal“, wenn du so weit bist sag einfach „Weiter“."
-      },
-      {
-        phrases: ["weiter"],
-        audios:  ["6.mp3"],
-        text:    "Nachdem du dir die Einmal-Handschuhe angezogen hast, bereitest du nun die Perfusor Spritze vor. Öffne die Spritze an der dafür vorgesehenen Lasche. Beachte, dass der Konus der Spritze weiterhin in der sterilen Verpackung bleibt. Nimm dir nun das vorbereitete NaCl und desinfiziere die Einstichstelle mit der Desinfektionslösung. Achte auf die vorgeschriebene Einwirkzeit. Wenn du so weit bist, sag einfach „weiter“."
-      },
-      {
-        phrases: ["weiter"],
-        audios:  ["7.mp3"],
-        text:    "Ziehe dir nun 49ml NaCl mit der Perfusorspritze und der dazugehörigen Aufziehkanüle auf. Verwurfe danach die Aufziehkanüle im Abwurfbehälter. Achte besonders darauf, den Konus der Perfusorspritze nicht zu verunreinigen. Öffne nun die Verpackung der anderen Aufziehkanüle und verbinde diese mit der Perfusorspritze. Wenn du so weit bist, sag einfach „weiter“."
-      },
-      {
-        phrases: ["weiter"],
-        audios:  ["8.mp3"],
-        text:    "Belasse die Perfusorspritze mit der konnektierten Aufziehkanüle in der Verpackung. Nimm jetzt die Noradrenalin-Brechampulle, prüfe noch einmal, ob es sich um das richtige Medikament und die richtige Dosierung handelt. Halte die Sollbruchstelle zu dir hin und brich die Ampulle auf. Achte sorgfältig darauf, die geöffnete Ampulle nicht zu verunreinigen. Ziehe nun das Medikament mit der Perfusorspritze auf."
-      },
-      {
-        phrases: ["weiter"],
-        audios:  ["9.mp3"],
-        text:    "Verwirf die Aufziehkanüle in den Abwurfbehälter. Öffne die Verpackung der Perfusor-Leitung, nimm den Abgang der Leitung und verbinde ihn mit der Perfusorspritze. Befülle die gesamte Leitung mit der Medikamentenlösung, bis sich keine Luft mehr in Spritze und Leitungssystem befindet. Die patientennahe Kappe bleibt vorerst an der Leitung. Wenn du fertig bist, sag „weiter“."
-      },
-      {
-        phrases: ["weiter"],
-        audios:  ["10.mp3"],
-        text:    "Du hast nun die fertige Lösung in der Perfusorspritze. Diese musst du noch kennzeichnen. Nimm dafür die vorgefertigten Aufkleber und achte unbedingt auf die richtige Kennzeichnung. Du hast 20 Mikrogramm Noradrenalin pro Milliliter in der Perfusorspritze. Klebe die Kennzeichnung so, dass die Milliliterangaben der Spritze erkennbar bleiben. Wenn du fertig bist, sag „weiter“."
-      },
-      {
-        phrases: ["weiter"],
-        audios:  ["11.mp3"],
-        text:    "Nachdem du die Medikamentenlösung im Vieraugenprinzip gegengecheckt hast, kannst du die Spritze in den Perfusor einlegen. Wenn du möchtest, erkläre ich dir noch, wie man den Perfusor mit der entsprechenden Laufrate einstellt – sag dazu einfach „Perfusor“. Hast du noch weitere Fragen?"
-      },
-      {
-        phrases: ["nein","danke"],
-        audios:  ["12.mp3"],
-        text:    "Ok, gern gesehen."
-      }
+      { phrases:["hey","pallas","hallo"], audios:["1.mp3","2.mp3"], text:"Hallo, was kann ich für dich tun?" },
+      // Noradrenalin: tolerante Varianten + „perfusor“
+      { phrases:["noradrenalin","nor adrenalin","nur adrenalin","nora","noradrenaline","nora adrenalin","perfusor"], audios:["3.mp3"], text:"Alles klar, einen Noradrenalin Perfusor also. Welche Dosierung möchtest du vorbereiten?" },
+      { phrases:["50","20 mikrogramm"], audios:["4.mp3"], text:"In Ordnung. Du möchtest also eine 50ml Noradrenalinperfursor Spritze mit einer Dosierung von 20 Mikrogramm pro Milliliter vorbereiten, habe ich das richtig verstanden?" },
+      { phrases:["ja","genau","richtig"], audios:["5.mp3"], text:"Ok du benötigst dafür folgende Materialien: Ein Medikamententablett, Alkoholisches Desinfektionsmittel, Aufziehkanüle, Perfusorspritze, Brechampulle Noradrenalin 1mg auf 1 Milliliter, 50 ml NaCl, Perfusioleitung, Einmalhandschuhe und Abwurfbehälter. Wenn dir das zu schnell ging, sag einfach „Nochmal“, wenn du so weit bist sag einfach „Weiter“." },
+      { phrases:["weiter"], audios:["6.mp3"], text:"Nachdem du dir die Einmal-Handschuhe angezogen hast, bereitest du nun die Perfusor Spritze vor. Öffne die Spritze an der dafür vorgesehenen Lasche. Beachte, dass der Konus der Spritze weiterhin in der sterilen Verpackung bleibt. Nimm dir nun das vorbereitete NaCl und desinfiziere die Einstichstelle mit der Desinfektionslösung. Achte auf die vorgeschriebene Einwirkzeit. Wenn du so weit bist, sag einfach „weiter“." },
+      { phrases:["weiter"], audios:["7.mp3"], text:"Ziehe dir nun 49ml NaCl mit der Perfusorspritze und der dazugehörigen Aufziehkanüle auf. Verwurfe danach die Aufziehkanüle im Abwurfbehälter. Achte besonders darauf, den Konus der Perfusorspritze nicht zu verunreinigen. Öffne nun die Verpackung der anderen Aufziehkanüle und verbinde diese mit der Perfusorspritze. Wenn du so weit bist, sag einfach „weiter“." },
+      { phrases:["weiter"], audios:["8.mp3"], text:"Belasse die Perfusorspritze mit der konnektierten Aufziehkanüle in der Verpackung. Nimm jetzt die Noradrenalin-Brechampulle, prüfe noch einmal, ob es sich um das richtige Medikament und die richtige Dosierung handelt. Halte die Sollbruchstelle zu dir hin und brich die Ampulle auf. Achte sorgfältig darauf, die geöffnete Ampulle nicht zu verunreinigen. Ziehe nun das Medikament mit der Perfusorspritze auf." },
+      { phrases:["weiter"], audios:["9.mp3"], text:"Verwirf die Aufziehkanüle in den Abwurfbehälter. Öffne die Verpackung der Perfusor-Leitung, nimm den Abgang der Leitung und verbinde ihn mit der Perfusorspritze. Befülle die gesamte Leitung mit der Medikamentenlösung, bis sich keine Luft mehr in Spritze und Leitungssystem befindet. Die patientennahe Kappe bleibt vorerst an der Leitung. Wenn du fertig bist, sag „weiter“." },
+      { phrases:["weiter"], audios:["10.mp3"], text:"Du hast nun die fertige Lösung in der Perfusorspritze. Diese musst du noch kennzeichnen. Nimm dafür die vorgefertigten Aufkleber und achte unbedingt auf die richtige Kennzeichnung. Du hast 20 Mikrogramm Noradrenalin pro Milliliter in der Perfusorspritze. Klebe die Kennzeichnung so, dass die Milliliterangaben der Spritze erkennbar bleiben. Wenn du fertig bist, sag „weiter“." },
+      { phrases:["weiter"], audios:["11.mp3"], text:"Nachdem du die Medikamentenlösung im Vieraugenprinzip gegengecheckt hast, kannst du die Spritze in den Perfusor einlegen. Wenn du möchtest, erkläre ich dir noch, wie man den Perfusor mit der entsprechenden Laufrate einstellt – sag dazu einfach „Perfusor“. Hast du noch weitere Fragen?" },
+      { phrases:["nein","danke"], audios:["12.mp3"], text:"Ok, gern gesehen." }
     ];
 
-    /* ------------------ State ------------------ */
-    let idx = 0;
-    let queue = [];
-    let recognition = null;
-    let listening = false;
-    let swLocked = false;
+    /* ---------- State & UI ---------- */
+    let idx=0, queue=[]; let recognition=null, listening=false, swLocked=false;
+    const total=steps.length;
+    const chat=document.getElementById("chat");
+    const player=document.getElementById("player");
+    const readyPing=document.getElementById("ready");
+    const repeatSfx=document.getElementById("repeat");
+    const bar=document.getElementById("bar");
+    const logo=document.getElementById("logo");
+    const micBtn=document.getElementById("micToggle");
+    const resetBtn=document.getElementById("reset");
+    const precSwitch=document.getElementById("precSwitch");
+    let precision=false; // Präzisionsmodus aus
 
-    const total = steps.length;
-
-    /* ------------------ UI Elements ------------------ */
-    const chat      = document.getElementById("chat");
-    const player    = document.getElementById("player");
-    const readyPing = document.getElementById("ready");
-    const repeatSfx = document.getElementById("repeat");
-
-    const bar   = document.getElementById("bar");
-    const logo  = document.getElementById("logo");
-    const micBtn= document.getElementById("micToggle");
-    const resetBtn = document.getElementById("reset");
-
-    /* ------------------ Utils ------------------ */
-    function normalize(s = "") {
-      return s
-        .toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9äöüß\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
+    /* ---------- Utils ---------- */
+    function normalize(s=""){
+      return s.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+        .replace(/[^a-z0-9äöüß\s]/g," ")
+        .replace(/\s+/g," ").trim();
     }
 
-    // Sichtbare, „schöne“ Darstellung für den Chat (korrigiert häufige ASR-Fehler)
-    function prettify(raw) {
-      let t = " " + normalize(raw) + " ";
-
-      // Korrekturen (Reihenfolge bewusst)
-      t = t.replace(/\bnor adrenalin(e)?\b/g, " noradrenalin ");
-      t = t.replace(/\bnur adrenalin(e)?\b/g, " noradrenalin ");
-      t = t.replace(/\bnora adrenalin(e)?\b/g, " noradrenalin ");
-      t = t.replace(/\bnora\b/g, " noradrenalin ");
-      t = t.replace(/\bnoradrenaline?\b/g, " noradrenalin ");
-
-      t = t.replace(/\bperfusor\b/g, " Perfusor ");
-      t = t.replace(/\b20 mikrogramm\b/g, " 20 Mikrogramm ");
-      t = t.replace(/\b50 ml\b/g, " 50 ml ");
-      t = t.replace(/\bweiter\b/g, " weiter ");
-      t = t.replace(/\bja\b/g, " ja ");
-      t = t.replace(/\bnein\b/g, " nein ");
-
-      // Aufräumen
-      t = t.replace(/\s+/g, " ").trim();
-
-      // Satzanfang groß
-      if (t.length) t = t[0].toUpperCase() + t.slice(1);
-
+    // Chat-Text hübsch machen (Korrekturen)
+    function prettify(raw){
+      let t=" "+normalize(raw)+" ";
+      t=t.replace(/\bnor adrenalin(e)?\b/g," noradrenalin ");
+      t=t.replace(/\bnur adrenalin(e)?\b/g," noradrenalin ");
+      t=t.replace(/\bnora adrenalin(e)?\b/g," noradrenalin ");
+      t=t.replace(/\bnora\b/g," noradrenalin ");
+      t=t.replace(/\bnoradrenaline?\b/g," noradrenalin ");
+      t=t.replace(/\bperfusor\b/g," Perfusor ");
+      t=t.replace(/\b20 mikrogramm\b/g," 20 Mikrogramm ");
+      t=t.replace(/\b50 ml\b/g," 50 ml ");
+      t=t.replace(/\bweiter\b/g," weiter ");
+      t=t.replace(/\bja\b/g," ja ");
+      t=t.replace(/\bnein\b/g," nein ");
+      t=t.replace(/\s+/g," ").trim();
+      if(t.length) t=t[0].toUpperCase()+t.slice(1);
       return t || raw;
     }
 
-    // Robust: Wiederholen-Check
-    function isRepeat(t) {
-      return (
-        t.includes("nochmal") ||
-        t.includes("noch mal") ||
-        t.includes("noch einmal") ||
-        t.includes("nochma") ||
-        t.includes("wiederholen") ||
-        t.includes("repeat") ||
-        (t.includes("noch") && t.includes("mal"))
-      );
+    // Levenshtein-Distanz (einfach, effizient genug für kurze Wörter)
+    function lev(a,b){
+      const m=a.length, n=b.length;
+      const dp=new Array(n+1);
+      for(let j=0;j<=n;j++) dp[j]=j;
+      for(let i=1;i<=m;i++){
+        let prev=dp[0]; dp[0]=i;
+        for(let j=1;j<=n;j++){
+          const tmp=dp[j];
+          dp[j]=Math.min(
+            dp[j]+1,
+            dp[j-1]+1,
+            prev + (a[i-1]===b[j-1]?0:1)
+          );
+          prev=tmp;
+        }
+      }
+      return dp[n];
     }
 
-    function addMsg(text, who) {
-      const d = document.createElement("div");
-      d.className = "msg " + who;
-      d.textContent = text;
+    // Fuzzy-Include: true wenn text eine phrase (oder nah dran) enthält
+    function fuzzyIncludes(text, phrase){
+      if(text.includes(phrase)) return true;
+      const words=text.split(" ");
+      // 1) Wort-zu-Wort nahe genug?
+      for(const w of words){
+        if(lev(w, phrase) <= 2) return true;
+      }
+      // 2) Für zweiteilige Phrasen (z.B. "nor adrenalin"): beide Teile grob vorhanden?
+      if(phrase.includes(" ")){
+        const parts=phrase.split(" ");
+        return parts.every(p=>{
+          return words.some(w => w===p || lev(w,p)<=1);
+        });
+      }
+      return false;
+    }
+
+    function addMsg(text, who){
+      const d=document.createElement("div");
+      d.className="msg "+who;
+      d.textContent=text;
       chat.appendChild(d);
-      chat.scrollTop = chat.scrollHeight;
+      chat.scrollTop=chat.scrollHeight;
     }
 
-    function updateProgress() {
-      const pct = Math.round((idx / total) * 100);
-      bar.style.width = pct + "%";
+    function updateProgress(){
+      bar.style.width = Math.round((idx/total)*100) + "%";
     }
 
-    /* ------------------ Audio Handling ------------------ */
-    function playStep(step) {
-      addMsg(step.text, "pallas");
-      queue = [...step.audios];
-      swLocked = true;
-      stopListeningSilently();
-
-      playNext(async () => {
-        try { await readyPing.play(); } catch(e) {}
-        swLocked = false;
-        setTimeout(() => { if (listening) startListening(); }, 200);
-        idx++;
-        updateProgress();
+    /* ---------- Audio ---------- */
+    function playStep(step){
+      addMsg(step.text,"pallas");
+      queue=[...step.audios];
+      swLocked=true; stopListeningSilently();
+      playNext(async ()=>{
+        try{ await readyPing.play(); }catch(e){}
+        swLocked=false;
+        setTimeout(()=>{ if(listening) startListening(); }, 200);
+        idx++; updateProgress();
       });
     }
-
-    function playNext(done) {
-      if (queue.length === 0) {
-        if (done) done();
-        return;
-      }
-      const file = queue.shift();
-      player.src = file;
-      player.onended = () => playNext(done);
-      player.onerror = () => playNext(done);
-      player.play().catch(() => playNext(done));
+    function playNext(done){
+      if(queue.length===0){ done && done(); return; }
+      const f=queue.shift();
+      player.src=f;
+      player.onended=()=>playNext(done);
+      player.onerror=()=>playNext(done);
+      player.play().catch(()=>playNext(done));
     }
 
-    /* ------------------ Speech Recognition ------------------ */
-    function createRecognizer() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) return null;
+    /* ---------- Speech ---------- */
+    function createRecognizer(){
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      if(!SR) return null;
+      const r=new SR();
+      r.lang="de-DE"; r.continuous=true; r.interimResults=false;
+      r.onresult=(ev)=>{
+        if(swLocked) return;
+        for(let i=ev.resultIndex;i<ev.results.length;i++){
+          const res=ev.results[i]; if(!res.isFinal) continue;
+          const raw=res[0].transcript||"";
+          const norm=normalize(raw);
 
-      const r = new SR();
-      r.lang = "de-DE";
-      r.continuous = true;
-      r.interimResults = false;
-
-      r.onresult = (ev) => {
-        if (swLocked) return;
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-          const res = ev.results[i];
-          if (!res.isFinal) continue;
-
-          const raw  = res[0].transcript || "";
-          const norm = normalize(raw);
-
-          // **Anzeige im Chat** mit Korrekturen
+          // Chat anzeigen – bereinigt
           addMsg(prettify(raw), "user");
 
           handleCommand(norm);
         }
       };
-
-      r.onend = () => {
-        if (listening && !swLocked) {
-          try { r.start(); } catch {}
-        }
-      };
-
+      r.onend=()=>{ if(listening && !swLocked){ try{ r.start(); }catch{} } };
       return r;
     }
 
-    function startListening() {
-      if (!recognition) recognition = createRecognizer();
-      if (!recognition) {
-        micBtn.textContent = "❌ Nicht unterstützt";
-        return;
+    function startListening(){
+      if(!recognition) recognition=createRecognizer();
+      if(!recognition){ micBtn.textContent="❌ Nicht unterstützt"; return; }
+      try{ recognition.start(); }catch{}
+      listening=true; micBtn.textContent="🎤 Mikro aus"; logo.classList.add("listening");
+    }
+    function stopListeningSilently(){ try{ recognition && recognition.stop(); }catch{} }
+    function stopListening(){ listening=false; stopListeningSilently(); micBtn.textContent="🎤 Mikro an"; logo.classList.remove("listening"); }
+
+    /* ---------- Command Handling ---------- */
+    function isRepeat(t){
+      return (
+        t.includes("nochmal") || t.includes("noch mal") || t.includes("noch einmal") ||
+        t.includes("nochma")  || t.includes("wiederholen") || t.includes("repeat") ||
+        (t.includes("noch") && t.includes("mal"))
+      );
+    }
+
+    function handleCommand(text){
+      if(idx>=total) return;
+
+      // Präzisionsmodus: außer beim allerersten Schritt (Weckwort) nur reagieren,
+      // wenn "pallas" im Text vorkommt (z.B. "pallas weiter", "pallas nochmal", ...).
+      if(precision && idx>0 && !text.includes("pallas")){
+        return; // ignorieren
       }
-      try { recognition.start(); } catch {}
-      listening = true;
-      micBtn.textContent = "🎤 Mikro aus";
-      logo.classList.add("listening");
-    }
 
-    function stopListeningSilently() {
-      try { recognition && recognition.stop(); } catch {}
-    }
-
-    function stopListening() {
-      listening = false;
-      stopListeningSilently();
-      micBtn.textContent = "🎤 Mikro an";
-      logo.classList.remove("listening");
-    }
-
-    /* ------------------ Command Handling ------------------ */
-    function handleCommand(text) {
-      if (idx >= total) return;
-
-      // Wiederholen (global)
-      if (isRepeat(text)) {
+      // "nochmal" ist immer möglich
+      if(isRepeat(text)){
         addMsg("Ok, nochmal.", "pallas");
-        repeatSfx.play().catch(() => {});
-        playStep(steps[idx]); // aktuellen Schritt neu
+        repeatSfx.play().catch(()=>{});
+        playStep(steps[idx]); // aktuellen Schritt erneut
         return;
       }
 
-      const step = steps[idx];
+      const step=steps[idx];
 
-      // Match-Logik:
-      // - Standard: irgendein Stichwort aus step.phrases
-      // - Für den Noradrenalin-Schritt (idx===1): extra tolerant
-      let matched = false;
+      // Allgemeines Matching (fuzzy)
+      let matched=false;
+      for(const phr of step.phrases){
+        if (fuzzyIncludes(text, phr)) { matched=true; break; }
+      }
 
-      if (idx === 1) {
-        // Trigger, wenn (Noradrenalin-Variante) ODER (Perfusor)
-        const hasNor =
-          text.includes("noradrenalin") ||
-          text.includes("nor adrenalin") ||
-          text.includes("nur adrenalin") ||
-          text.includes("nora adrenalin") ||
-          text.includes("nora") ||
-          text.includes("noradrenaline");
-        const hasPerf = text.includes("perfusor");
+      // Spezialbehandlung Step 2 (Noradrenalin/Perfusor): noch toleranter
+      if(!matched && idx===1){
+        const hasNor = ["noradrenalin","nor adrenalin","nur adrenalin","nora adrenalin","nora","noradrenaline"]
+          .some(p => fuzzyIncludes(text, p));
+        const hasPerf = fuzzyIncludes(text, "perfusor");
         matched = hasNor || hasPerf;
-      } else {
-        for (const p of step.phrases) {
-          if (text.includes(p)) { matched = true; break; }
-        }
       }
 
-      if (matched) {
-        playStep(step);
-      }
+      if(matched) playStep(step);
     }
 
-    /* ------------------ Controls ------------------ */
-    micBtn.addEventListener("click", () => {
-      if (listening) {
-        stopListening();
-      } else {
-        recognition = null;
-        startListening();
-      }
-    });
+    /* ---------- Controls ---------- */
+    micBtn.addEventListener("click", ()=>{ if(listening){ stopListening(); } else { recognition=null; startListening(); } });
+    resetBtn.addEventListener("click", ()=>{ idx=0; queue=[]; stopListening(); chat.innerHTML=""; updateProgress(); addMsg("Sag 'Hey PALLAS' um zu starten.","pallas"); });
+    precSwitch.addEventListener("click", ()=>{ precision=!precision; precSwitch.classList.toggle("on", precision); });
 
-    resetBtn.addEventListener("click", () => {
-      idx = 0;
-      queue = [];
-      stopListening();
-      chat.innerHTML = "";
-      updateProgress();
-      addMsg("Sag 'Hey PALLAS' um zu starten.", "pallas");
-    });
-
-    /* ------------------ Init ------------------ */
+    /* ---------- Init ---------- */
     updateProgress();
     addMsg("Sag 'Hey PALLAS' um zu starten.", "pallas");
   </script>
