@@ -12,10 +12,8 @@
     #micStatus { margin-top:12px; font-weight:bold; }
   </style>
 
-  <!-- Manifest einbinden -->
+  <!-- Manifest + Service Worker -->
   <link rel="manifest" href="manifest.json">
-
-  <!-- Service Worker registrieren -->
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("service-worker.js")
@@ -26,7 +24,7 @@
 </head>
 <body>
   <h1>🎙️ PALLAS Sprachdemo</h1>
-  <p>Sage die Befehle oder nutze den Button. Das Mikrofon fragt nur einmal nach Erlaubnis.</p>
+  <p>Sage die Befehle oder nutze den Button. Mikro pausiert automatisch während Audio.</p>
 
   <button id="micToggle">🎤 Mikro an</button>
   <p id="micStatus">Inaktiv</p>
@@ -35,13 +33,13 @@
   <audio id="player" controls></audio>
 
   <script>
-    // Ablauf mit Stichwort-Erkennung
+    // Schritte mit Stichwort-Erkennung
     const steps = [
       { label:"Hey PALLAS", phrases:["hey","pallas","hallo"], audios:["1.mp3","2.mp3"] },
       { label:"Noradrenalin Perfusor", phrases:["noradrenalin","perfusor"], audios:["3.mp3"] },
-      { label:"50 ml mit 20 µg/ml", phrases:["50","20 mikrogramm","20 mikrogramm pro milliliter"], audios:["4.mp3"] },
+      { label:"50 ml mit 20 µg/ml", phrases:["50","20 mikrogramm"], audios:["4.mp3"] },
       { label:"Ja", phrases:["ja","genau","richtig"], audios:["5.mp3"] },
-      { label:"Weiter", phrases:["weiter","ok","mach weiter"], audios:["6.mp3"] },
+      { label:"Weiter", phrases:["weiter","ok"], audios:["6.mp3"] },
       { label:"Weiter", phrases:["weiter"], audios:["7.mp3"] },
       { label:"Weiter", phrases:["weiter"], audios:["8.mp3"] },
       { label:"Weiter", phrases:["weiter"], audios:["9.mp3"] },
@@ -52,6 +50,10 @@
 
     let idx = 0;
     let queue = [];
+    let recognition = null;
+    let listening = false;  // Nutzer hat Mikro aktiviert
+    let swLocked = false;   // während Audio blockieren
+
     const player = document.getElementById("player");
     const buttonsDiv = document.getElementById("buttons");
     const micBtn = document.getElementById("micToggle");
@@ -74,44 +76,59 @@
 
     function playStep(step) {
       queue = [...step.audios];
-      playNext(() => { idx++; renderButton(); });
+      swLocked = true;
+      stopListeningSilently();  // Mikro pausieren
+      playNext(() => {
+        swLocked = false;
+        setTimeout(() => { if (listening) startListening(); }, 200); // Mikro wieder aktivieren
+        idx++;
+        renderButton();
+      });
     }
 
-    function playNext(callback) {
-      if (queue.length === 0) { if(callback) callback(); return; }
+    function playNext(done) {
+      if (queue.length === 0) { done && done(); return; }
       const nextFile = queue.shift();
       player.src = nextFile;
-      player.onended = () => playNext(callback);
-      player.play();
+      player.onended = () => playNext(done);
+      player.onerror = () => playNext(done);
+      player.play().catch(() => playNext(done));
     }
-
-    let recognition = null;
-    let listening = false;
 
     function startListening() {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) { micStatus.textContent = "Nicht unterstützt (nur Chrome/Edge)"; return; }
-      recognition = new SR();
-      recognition.lang = "de-DE";
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.onresult = e => {
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          if (!e.results[i].isFinal) continue;
-          const text = normalize(e.results[i][0].transcript);
-          handleCommand(text);
-        }
-      };
-      recognition.onend = () => { if(listening) recognition.start(); };
-      recognition.start();
+      if (!SR) { micStatus.textContent = "Nicht unterstützt (Chrome/Edge nutzen)"; return; }
+      if (!recognition) {
+        recognition = new SR();
+        recognition.lang = "de-DE";
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        recognition.onresult = (e) => {
+          if (swLocked) return; // während Audio keine Kommandos
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            if (!e.results[i].isFinal) continue;
+            const text = normalize(e.results[i][0].transcript);
+            handleCommand(text);
+          }
+        };
+        recognition.onend = () => {
+          if (listening && !swLocked) {
+            try { recognition.start(); } catch {}
+          }
+        };
+      }
+      try { recognition.start(); } catch {}
       listening = true;
       micStatus.textContent = "Aktiv – hört zu";
       micBtn.textContent = "🎤 Mikro aus";
     }
 
+    function stopListeningSilently() {
+      try { recognition && recognition.stop(); } catch {}
+    }
     function stopListening() {
-      if (recognition) recognition.stop();
       listening = false;
+      stopListeningSilently();
       micStatus.textContent = "Inaktiv";
       micBtn.textContent = "🎤 Mikro an";
     }
@@ -127,6 +144,10 @@
         if (text.includes(phrase)) { playStep(step); break; }
       }
     }
+
+    // Sicherheit: Mikro aus, wenn Audio läuft
+    player.addEventListener('play',  () => { swLocked = true; stopListeningSilently(); });
+    player.addEventListener('ended', () => { swLocked = false; if (listening) setTimeout(() => startListening(), 200); });
 
     renderButton();
   </script>
