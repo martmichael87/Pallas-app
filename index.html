@@ -5,220 +5,94 @@
   <title>PALLAS Sprachdemo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root {
-      --pallas:#2a5d84;
-      --bg:#eef3f8;
-      --bubble-user:#daf0ff;
-      --bubble-pallas:#ffffff;
-    }
-    body {
-      margin:0; font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-      background:var(--bg); display:flex; flex-direction:column; height:100vh;
-    }
-    header {
-      background:var(--pallas); color:#fff; padding:14px 20px;
-      display:flex; align-items:center; gap:12px;
-      box-shadow:0 2px 6px rgba(0,0,0,.15);
-    }
-    header img {
-      width:40px; height:40px; border-radius:50%; background:#fff; padding:4px;
-    }
+    :root { --pallas:#2a5d84; --bg:#eef3f8; --bubble-user:#daf0ff; --bubble-pallas:#ffffff; }
+    body { margin:0; font-family: 'Segoe UI', Roboto, Arial, sans-serif; background:var(--bg); display:flex; flex-direction:column; height:100vh; }
+    header { background:var(--pallas); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(0,0,0,.15); }
     header h1 { margin:0; font-size:20px; font-weight:700; }
-
-    .progress {
-      height:6px; background:#cbd5e1; width:100%;
-    }
-    .bar {
-      height:100%; background:linear-gradient(90deg,#2a5d84,#3b7aa9);
-      width:0%; transition:width .4s ease;
-    }
-
-    main {
-      flex:1; overflow-y:auto; padding:20px;
-      display:flex; flex-direction:column; gap:12px;
-    }
-    .msg {
-      max-width:70%; padding:12px 16px; border-radius:18px; font-size:16px;
-      line-height:1.4; position:relative; animation:fadeIn .3s ease;
-    }
-    .msg.user {
-      background:var(--bubble-user); align-self:flex-end;
-      border-bottom-right-radius:4px;
-    }
-    .msg.pallas {
-      background:var(--bubble-pallas); align-self:flex-start;
-      border-bottom-left-radius:4px;
-      box-shadow:0 2px 4px rgba(0,0,0,.08);
-    }
+    .progress { height:6px; background:#cbd5e1; width:100%; }
+    .bar { height:100%; background:linear-gradient(90deg,#2a5d84,#3b7aa9); width:0%; transition:width .4s ease; }
+    main { flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:12px; }
+    .msg { max-width:70%; padding:12px 16px; border-radius:18px; font-size:16px; line-height:1.4; animation:fadeIn .3s ease; }
+    .msg.user { background:var(--bubble-user); align-self:flex-end; border-bottom-right-radius:4px; }
+    .msg.pallas { background:var(--bubble-pallas); align-self:flex-start; border-bottom-left-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,.08); }
     @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;} }
-
-    footer {
-      padding:12px; background:#fff; display:flex; justify-content:space-between;
-      align-items:center; border-top:1px solid #e2e8f0;
-    }
-    footer button {
-      padding:10px 16px; border:none; border-radius:8px;
-      background:var(--pallas); color:#fff; font-size:15px; cursor:pointer;
-    }
+    footer { padding:12px; background:#fff; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; }
+    footer button { padding:10px 16px; border:none; border-radius:8px; background:var(--pallas); color:#fff; font-size:15px; cursor:pointer; }
     footer button:hover { filter:brightness(.95); }
-
-    /* PALLAS Avatar Pulsing */
-    #logo {
-      width:48px; height:48px; border-radius:50%; background:var(--pallas);
-      display:grid; place-items:center; color:#fff; margin-right:8px;
-      position:relative;
-    }
-    #logo.listening::after {
-      content:""; position:absolute; inset:0; border-radius:50%;
-      border:2px solid rgba(42,93,132,.4); animation:pulse 1.6s infinite;
-    }
-    @keyframes pulse {
-      0%{transform:scale(1); opacity:.6;} 
-      70%{transform:scale(1.4); opacity:0;} 
-      100%{opacity:0;}
-    }
+    #logo { width:48px; height:48px; border-radius:50%; background:var(--pallas); display:grid; place-items:center; color:#fff; margin-right:8px; position:relative; }
+    #logo.listening::after { content:""; position:absolute; inset:0; border-radius:50%; border:2px solid rgba(42,93,132,.4); animation:pulse 1.6s infinite; }
+    @keyframes pulse { 0%{transform:scale(1); opacity:.6;} 70%{transform:scale(1.4); opacity:0;} 100%{opacity:0;} }
   </style>
 </head>
 <body>
   <header>
-    <div id="logo">
-      🎤
-    </div>
+    <div id="logo">🎤</div>
     <h1>PALLAS – Pflegeassistenz</h1>
   </header>
   <div class="progress"><div id="bar" class="bar"></div></div>
-
-  <main id="chat">
-    <!-- Chat-Verlauf wird hier generiert -->
-  </main>
-
+  <main id="chat"></main>
   <footer>
     <button id="micToggle">🎤 Mikro an</button>
     <button id="reset">🔄 Reset</button>
   </footer>
-
   <audio id="player" controls style="display:none"></audio>
   <audio id="ready" preload="auto" src="1.mp3"></audio>
+  <audio id="repeat" preload="auto" src="nochmal.mp3"></audio>
 
   <script>
-    // ---------- Schritte ----------
     const steps = [
-      { label:"Hey PALLAS", phrases:["hey","pallas","hallo"], audios:["1.mp3","2.mp3"] },
-      { label:"Noradrenalin Perfusor", phrases:["noradrenalin","perfusor"], audios:["3.mp3"] },
-      { label:"50 ml mit 20 µg/ml", phrases:["50","20 mikrogramm"], audios:["4.mp3"] },
-      { label:"Ja", phrases:["ja","genau","richtig"], audios:["5.mp3"] },
-      { label:"Weiter", phrases:["weiter","ok"], audios:["6.mp3"] },
-      { label:"Weiter", phrases:["weiter"], audios:["7.mp3"] },
-      { label:"Weiter", phrases:["weiter"], audios:["8.mp3"] },
-      { label:"Weiter", phrases:["weiter"], audios:["9.mp3"] },
-      { label:"Weiter", phrases:["weiter"], audios:["10.mp3"] },
-      { label:"Weiter", phrases:["weiter"], audios:["11.mp3"] },
-      { label:"Nein, danke", phrases:["nein","danke"], audios:["12.mp3"] }
+      { phrases:["hey","pallas","hallo"], audios:["1.mp3","2.mp3"], text:"Hallo, was kann ich für dich tun?" },
+      { phrases:["noradrenalin","perfusor"], audios:["3.mp3"], text:"Alles klar, einen Noradrenalin Perfusor also. Welche Dosierung möchtest du vorbereiten?" },
+      { phrases:["50","20 mikrogramm"], audios:["4.mp3"], text:"In Ordnung. Du möchtest also eine 50ml Noradrenalinperfursor Spritze mit einer Dosierung von 20 Mikrogramm pro Milliliter vorbereiten, habe ich das richtig verstanden?" },
+      { phrases:["ja","genau","richtig"], audios:["5.mp3"], text:"Ok du benötigst dafür folgende Materialien: Ein Medikamententablett, Alkoholisches Desinfektionsmittel, Aufziehkanüle, Perfusorspritze, Brechampulle Noradrenalin 1mg auf 1 Milliliter, 50 ml NaCl, Perfusioleitung, Einmalhandschuhe und Abwurfbehälter. Wenn dir das zu schnell ging, sag einfach „Nochmal“, wenn du so weit bist sag einfach „Weiter“." },
+      { phrases:["weiter"], audios:["6.mp3"], text:"Nachdem du dir die Einmal-Handschuhe angezogen hast, bereitest du nun die Perfusor Spritze vor. [...] Wenn du so weit bist, sag einfach „weiter“." },
+      { phrases:["weiter"], audios:["7.mp3"], text:"Ziehe dir nun 49ml NaCl auf [...] Wenn du so weit bist, sag einfach „weiter“." },
+      { phrases:["weiter"], audios:["8.mp3"], text:"Belasse die Spritze mit Aufziehkanüle in der Verpackung. Nimm die Noradrenalin Brechampulle, prüfe Medikament und Dosierung, brich die Ampulle auf und ziehe das Medikament auf." },
+      { phrases:["weiter"], audios:["9.mp3"], text:"Verwirf die Aufziehkanüle. Öffne die Perfusor-Leitung, verbinde sie mit der Spritze und befülle das System vollständig. Sag „weiter“, wenn du fertig bist." },
+      { phrases:["weiter"], audios:["10.mp3"], text:"Du hast nun die fertige Lösung. Kennzeichne die Spritze korrekt mit den Aufklebern: 20 Mikrogramm Noradrenalin pro Milliliter. Wenn du fertig bist, sag „weiter“." },
+      { phrases:["weiter"], audios:["11.mp3"], text:"Nachdem du die Lösung im Vieraugenprinzip gegengecheckt hast, kannst du die Spritze in den Perfusor einlegen. Sag „Perfusor“, wenn ich dir die Rate erklären soll. Hast du noch Fragen?" },
+      { phrases:["nein","danke"], audios:["12.mp3"], text:"Ok, gern gesehen." }
     ];
 
-    // ---------- State ----------
-    let idx = 0, queue = [];
-    let recognition=null, listening=false, swLocked=false;
-    const total = steps.length;
+    let idx=0, queue=[]; let recognition=null, listening=false, swLocked=false;
+    const total=steps.length;
+    const chat=document.getElementById("chat"), player=document.getElementById("player"), readyPing=document.getElementById("ready"), repeatPing=document.getElementById("repeat");
+    const bar=document.getElementById("bar"), logo=document.getElementById("logo"), micBtn=document.getElementById("micToggle"), resetBtn=document.getElementById("reset");
 
-    // ---------- UI ----------
-    const chat=document.getElementById("chat");
-    const player=document.getElementById("player");
-    const readyPing=document.getElementById("ready");
-    const bar=document.getElementById("bar");
-    const logo=document.getElementById("logo");
-    const micBtn=document.getElementById("micToggle");
-    const resetBtn=document.getElementById("reset");
+    const normalize=s=>(s||"").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9äöüß\s]/g,' ').replace(/\s+/g,' ').trim();
 
-    const normalize = s => (s||"").toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
-      .replace(/[^a-z0-9äöüß\s]/g,' ').replace(/\s+/g,' ').trim();
+    function addMsg(text,who){const d=document.createElement("div");d.className="msg "+who;d.textContent=text;chat.appendChild(d);chat.scrollTop=chat.scrollHeight;}
 
-    function addMsg(text, who){
-      const div=document.createElement("div");
-      div.className="msg "+who;
-      div.textContent=text;
-      chat.appendChild(div);
-      chat.scrollTop=chat.scrollHeight;
+    function updateProgress(){bar.style.width=Math.round((idx/total)*100)+"%";}
+
+    function playStep(step){queue=[...step.audios];swLocked=true;stopListeningSilently();
+      playNext(async()=>{try{await readyPing.play();}catch{};swLocked=false;setTimeout(()=>{if(listening)startListening();},200);idx++;updateProgress();});
+      addMsg(step.text,"pallas");
     }
 
-    function updateProgress(){
-      const pct=Math.round((idx/total)*100);
-      bar.style.width=pct+"%";
-    }
+    function playNext(done){if(queue.length===0){done&&done();return;}const f=queue.shift();player.src=f;player.onended=()=>playNext(done);player.onerror=()=>playNext(done);player.play().catch(()=>playNext(done));}
 
-    // ---------- Audio ----------
-    function playStep(step){
-      queue=[...step.audios];
-      swLocked=true; stopListeningSilently();
-      playNext(async ()=>{
-        try{await readyPing.play();}catch{}
-        swLocked=false; setTimeout(()=>{if(listening) startListening();},200);
-        idx++; updateProgress();
-      });
-      addMsg(step.label,"pallas");
-    }
+    function createRecognizer(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return null;const r=new SR();r.lang="de-DE";r.continuous=true;r.interimResults=false;
+      r.onresult=(ev)=>{if(swLocked)return;for(let i=ev.resultIndex;i<ev.results.length;i++){const res=ev.results[i];if(!res.isFinal)continue;const raw=res[0].transcript||"";const text=normalize(raw);addMsg(raw,"user");handleCommand(text);}};r.onend=()=>{if(listening&&!swLocked){try{r.start();}catch{}}};return r;}
 
-    function playNext(done){
-      if(queue.length===0){done&&done();return;}
-      const nextFile=queue.shift();
-      player.src=nextFile;
-      player.onended=()=>playNext(done);
-      player.onerror=()=>playNext(done);
-      player.play().catch(()=>playNext(done));
-    }
-
-    // ---------- Speech ----------
-    function createRecognizer(){
-      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-      if(!SR) return null;
-      const r=new SR();
-      r.lang="de-DE"; r.continuous=true; r.interimResults=false;
-      r.onresult=(ev)=>{
-        if(swLocked) return;
-        for(let i=ev.resultIndex;i<ev.results.length;i++){
-          const res=ev.results[i]; if(!res.isFinal) continue;
-          const raw=res[0].transcript||""; const text=normalize(raw);
-          addMsg(raw,"user");
-          handleCommand(text);
-        }
-      };
-      r.onend=()=>{if(listening&&!swLocked){try{r.start();}catch{}}};
-      return r;
-    }
-
-    function startListening(){
-      if(!recognition) recognition=createRecognizer();
-      if(!recognition){micBtn.textContent="❌ Nicht unterstützt";return;}
-      try{recognition.start();}catch{}
-      listening=true; micBtn.textContent="🎤 Mikro aus"; logo.classList.add("listening");
-    }
+    function startListening(){if(!recognition)recognition=createRecognizer();if(!recognition){micBtn.textContent="❌ Nicht unterstützt";return;}try{recognition.start();}catch{}listening=true;micBtn.textContent="🎤 Mikro aus";logo.classList.add("listening");}
     function stopListeningSilently(){try{recognition&&recognition.stop();}catch{}}
-    function stopListening(){
-      listening=false; stopListeningSilently();
-      micBtn.textContent="🎤 Mikro an"; logo.classList.remove("listening");
-    }
+    function stopListening(){listening=false;stopListeningSilently();micBtn.textContent="🎤 Mikro an";logo.classList.remove("listening");}
 
     function handleCommand(text){
-      if(idx>=total) return;
-      const step=steps[idx];
-      for(const p of step.phrases){
-        if(text.includes(p)){ playStep(step); return; }
+      if(idx>=total)return;
+      if(text.includes("nochmal")){ // Wiederholen
+        addMsg("Ok, nochmal.","pallas");
+        repeatPing.play().catch(()=>{});
+        playStep(steps[idx]);return;
       }
+      const step=steps[idx];
+      for(const p of step.phrases){if(text.includes(p)){playStep(step);return;}}
     }
 
-    // ---------- Controls ----------
-    micBtn.addEventListener("click",()=>{
-      if(listening){ stopListening(); } else { recognition=null; startListening(); }
-    });
-    resetBtn.addEventListener("click",()=>{
-      idx=0; queue=[]; stopListening();
-      chat.innerHTML=""; updateProgress();
-    });
-
-    // ---------- Init ----------
-    updateProgress();
-    addMsg("Sag 'Hey PALLAS' um zu starten.","pallas");
+    micBtn.addEventListener("click",()=>{if(listening){stopListening();}else{recognition=null;startListening();}});
+    resetBtn.addEventListener("click",()=>{idx=0;queue=[];stopListening();chat.innerHTML="";updateProgress();});
+    updateProgress();addMsg("Sag 'Hey PALLAS' um zu starten.","pallas");
   </script>
 </body>
 </html>
