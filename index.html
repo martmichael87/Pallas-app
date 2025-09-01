@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <title>PALLAS Sprachdemo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
   <style>
-    :root { --pallas:#2a5d84; --bg:#eef3f8; --bubble-user:#daf0ff; --bubble-pallas:#ffffff; }
+    :root { --pallas:#2a5d84; --bg:#eef3f8; --bubble-user:#daf0ff; --bubble-pallas:#ffffff; --ok:#2ecc71; --err:#e74c3c; }
     body { margin:0; font-family:'Segoe UI', Roboto, Arial, sans-serif; background:var(--bg); display:flex; flex-direction:column; height:100vh; }
     header { background:var(--pallas); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:12px; box-shadow:0 2px 6px rgba(0,0,0,.15); }
     header h1 { margin:0; font-size:20px; font-weight:700; }
@@ -20,15 +21,24 @@
     .msg.pallas { background:var(--bubble-pallas); align-self:flex-start; border-bottom-left-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,.08); }
     @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;} }
     footer { padding:12px; background:#fff; display:flex; gap:10px; flex-wrap:wrap; justify-content:space-between; align-items:center; border-top:1px solid #e2e8f0; position:sticky; bottom:0; }
-    footer .left, footer .right { display:flex; gap:10px; align-items:center; }
-    footer button { padding:10px 16px; border:none; border-radius:8px; background:var(--pallas); color:#fff; font-size:15px; cursor:pointer; }
-    footer button:hover { filter:brightness(.95); }
+    footer .left, footer .right { display:flex; gap:12px; align-items:center; }
+
+    /* Icon-Button */
+    .iconbtn { display:inline-grid; place-items:center; width:44px; height:44px; border:none; border-radius:10px; background:var(--pallas); color:#fff; font-size:20px; cursor:pointer; }
+    .iconbtn:hover { filter:brightness(.95); }
+    .dot { width:12px; height:12px; border-radius:50%; box-shadow:0 0 0 2px #ffffff; }
+    .dot.green { background:var(--ok); }
+    .dot.red   { background:var(--err); }
+
+    /* Präzisionsmodus Toggle */
     .toggle { display:flex; align-items:center; gap:8px; font-size:14px; color:#173249; }
     .switch { position:relative; width:44px; height:24px; background:#cbd5e1; border-radius:999px; cursor:pointer; }
     .switch::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .2s ease; }
     .switch.on { background:#2a5d84; }
     .switch.on::after { left:23px; }
   </style>
+
+  <!-- PWA -->
   <link rel="manifest" href="manifest.json" />
   <script>
     if ("serviceWorker" in navigator) { navigator.serviceWorker.register("service-worker.js").catch(()=>{}); }
@@ -46,8 +56,11 @@
 
   <footer>
     <div class="left">
-      <button id="micToggle">🎤 Mikro an</button>
-      <button id="reset">🔄 Reset</button>
+      <!-- Icon-Button + Statuspunkt -->
+      <button id="micToggle" class="iconbtn" aria-label="Mikrofon umschalten" title="Mikrofon umschalten">🎤</button>
+      <span id="micDot" class="dot red" title="Mikro aus"></span>
+
+      <button id="reset" class="iconbtn" aria-label="Reset" title="Zurücksetzen">🔄</button>
     </div>
     <div class="right">
       <div class="toggle" title="Wenn an, dann nur Befehle mit Präfix ‚Pallas …‘ (z. B. ‚Pallas weiter‘).">
@@ -57,6 +70,7 @@
     </div>
   </footer>
 
+  <!-- Audio -->
   <audio id="player" controls style="display:none"></audio>
   <audio id="ready"  preload="auto" src="1.mp3"></audio>
   <audio id="repeat" preload="auto" src="nochmal.mp3"></audio>
@@ -81,19 +95,27 @@
     let idx=0, queue=[];
     let recognition=null, listening=false, swLocked=false;
     const total=steps.length;
+
     const chat=document.getElementById("chat");
     const player=document.getElementById("player");
     const readyPing=document.getElementById("ready");
     const repeatSfx=document.getElementById("repeat");
+
     const bar=document.getElementById("bar");
     const logo=document.getElementById("logo");
     const micBtn=document.getElementById("micToggle");
+    const micDot=document.getElementById("micDot");
     const resetBtn=document.getElementById("reset");
     const precSwitch=document.getElementById("precSwitch");
     let precision=false; // Präzisionsmodus aus
 
     /* ---------- Utils ---------- */
-    function normalize(s=""){ return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9äöüß\s]/g," ").replace(/\s+/g," ").trim(); }
+    function normalize(s=""){
+      return s.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+        .replace(/[^a-z0-9äöüß\s]/g," ")
+        .replace(/\s+/g," ").trim();
+    }
     function prettify(raw){
       let t=" "+normalize(raw)+" ";
       t=t.replace(/\bnor adrenalin(e)?\b/g," noradrenalin ").replace(/\bnur adrenalin(e)?\b/g," noradrenalin ")
@@ -129,14 +151,18 @@
       swLocked = true;
       stopListeningSilently();
 
+      // READY-PING sofort & knackig nach Abschluss
       const afterAll = async () => {
-        try { await readyPing.play(); } catch(e) {}
+        try {
+          readyPing.pause();
+          readyPing.currentTime = 0;
+          readyPing.playbackRate = 1.15;  // etwas schneller = „snappier“
+          await readyPing.play();
+        } catch(e) {}
         swLocked = false;
-        setTimeout(()=>{ if(listening) startListening(); }, 200);
-        if (advance) {
-          // nur im normalen Ablauf erhöhen
-          if (index === idx) idx++;
-        }
+        // Mikro sehr kurz später wieder aktivieren
+        setTimeout(()=>{ if(listening) startListening(); }, 60);
+        if (advance) { if (index === idx) idx++; }
         updateProgress();
       };
 
@@ -149,6 +175,7 @@
       player.src = f;
       player.onended = () => playNext(done);
       player.onerror = () => playNext(done);
+      // wichtig: sofort starten, Fehler abfangen
       player.play().catch(()=>playNext(done));
     }
 
@@ -170,9 +197,18 @@
       r.onend=()=>{ if(listening && !swLocked){ try{ r.start(); }catch{} } };
       return r;
     }
-    function startListening(){ if(!recognition) recognition=createRecognizer(); if(!recognition){ micBtn.textContent="❌ Nicht unterstützt"; return; } try{ recognition.start(); }catch{} listening=true; micBtn.textContent="🎤 Mikro aus"; logo.classList.add("listening"); }
+    function startListening(){
+      if(!recognition) recognition=createRecognizer();
+      if(!recognition){ micBtn.title="Nicht unterstützt"; return; }
+      try{ recognition.start(); }catch{}
+      listening=true; logo.classList.add("listening");
+      micDot.classList.remove("red"); micDot.classList.add("green"); micDot.title="Mikro an";
+    }
     function stopListeningSilently(){ try{ recognition && recognition.stop(); }catch{} }
-    function stopListening(){ listening=false; stopListeningSilently(); micBtn.textContent="🎤 Mikro an"; logo.classList.remove("listening"); }
+    function stopListening(){
+      listening=false; stopListeningSilently(); logo.classList.remove("listening");
+      micDot.classList.remove("green"); micDot.classList.add("red"); micDot.title="Mikro aus";
+    }
 
     /* ---------- Command Handling ---------- */
     function isRepeat(t){
@@ -181,6 +217,7 @@
                (t.includes("noch") && t.includes("mal")) );
     }
 
+    let precision=false;
     function handleCommand(text){
       if(idx>=total) return;
 
@@ -192,11 +229,9 @@
         addMsg("Ok, nochmal.", "pallas");
         repeatSfx.play().catch(()=>{});
         if (swLocked) {
-          // während Audio: aktuelle Antwort neu starten
           stopAllAudio();
           playStepAt(idx, {advance:false});
         } else {
-          // nach Abschluss: letzte Antwort (idx-1) wiederholen
           const prev = Math.max(0, idx - 1);
           playStepAt(prev, {advance:false});
         }
@@ -207,13 +242,11 @@
       const step=steps[idx];
       let matched=false;
       for(const phr of step.phrases){ if(fuzzyIncludes(text, phr)){ matched=true; break; } }
-
       if(!matched && idx===1){
         const hasNor = ["noradrenalin","nor adrenalin","nur adrenalin","nora adrenalin","nora","noradrenaline"].some(p=>fuzzyIncludes(text,p));
         const hasPerf = fuzzyIncludes(text,"perfusor");
         matched = hasNor || hasPerf;
       }
-
       if(matched) playStepAt(idx, {advance:true});
     }
 
@@ -225,6 +258,8 @@
     /* ---------- Init ---------- */
     updateProgress();
     addMsg("Sag 'Hey PALLAS' um zu starten.", "pallas");
+    // Ready-Ping vorwärmen (schneller Start)
+    readyPing.load();
   </script>
 </body>
 </html>
