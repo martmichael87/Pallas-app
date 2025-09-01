@@ -5,94 +5,103 @@
   <title>PALLAS Sprachdemo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --c1:#2a5d84; --bg:#f4f4f4; --muted:#6b7a88; }
-    body { font-family: system-ui, Arial, sans-serif; background:var(--bg); margin:0; padding:24px; }
-    .wrap { max-width:900px; margin:0 auto; background:#fff; border-radius:14px; padding:22px; box-shadow:0 10px 30px rgba(0,0,0,.08); }
-    h1 { margin:0 0 6px; color:var(--c1); font-weight:800; }
-    p { color:#222; margin:6px 0 16px; }
-    .toprow { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
-
-    button { border:none; border-radius:10px; background:var(--c1); color:#fff; padding:12px 18px; font-size:16px; cursor:pointer; }
-    button:hover { filter:brightness(.95); }
-    #micStatus { font-weight:600; color:#1b2a36; }
-
-    .logo {
-      width:64px; height:64px; border-radius:50%;
-      background:var(--c1); display:grid; place-items:center; position:relative; color:#fff;
-      box-shadow:0 8px 18px rgba(42,93,132,.3);
+    :root {
+      --pallas:#2a5d84;
+      --bg:#eef3f8;
+      --bubble-user:#daf0ff;
+      --bubble-pallas:#ffffff;
     }
-    .logo::after, .logo::before {
-      content:""; position:absolute; inset:0; border-radius:50%; outline:2px solid rgba(42,93,132,.35); transform:scale(1.05); opacity:0;
+    body {
+      margin:0; font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      background:var(--bg); display:flex; flex-direction:column; height:100vh;
     }
-    .logo.listening::before { animation:pulse 1.8s ease-in-out infinite; }
-    .logo.listening::after  { animation:pulse 1.8s .9s ease-in-out infinite; }
+    header {
+      background:var(--pallas); color:#fff; padding:14px 20px;
+      display:flex; align-items:center; gap:12px;
+      box-shadow:0 2px 6px rgba(0,0,0,.15);
+    }
+    header img {
+      width:40px; height:40px; border-radius:50%; background:#fff; padding:4px;
+    }
+    header h1 { margin:0; font-size:20px; font-weight:700; }
+
+    .progress {
+      height:6px; background:#cbd5e1; width:100%;
+    }
+    .bar {
+      height:100%; background:linear-gradient(90deg,#2a5d84,#3b7aa9);
+      width:0%; transition:width .4s ease;
+    }
+
+    main {
+      flex:1; overflow-y:auto; padding:20px;
+      display:flex; flex-direction:column; gap:12px;
+    }
+    .msg {
+      max-width:70%; padding:12px 16px; border-radius:18px; font-size:16px;
+      line-height:1.4; position:relative; animation:fadeIn .3s ease;
+    }
+    .msg.user {
+      background:var(--bubble-user); align-self:flex-end;
+      border-bottom-right-radius:4px;
+    }
+    .msg.pallas {
+      background:var(--bubble-pallas); align-self:flex-start;
+      border-bottom-left-radius:4px;
+      box-shadow:0 2px 4px rgba(0,0,0,.08);
+    }
+    @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;} }
+
+    footer {
+      padding:12px; background:#fff; display:flex; justify-content:space-between;
+      align-items:center; border-top:1px solid #e2e8f0;
+    }
+    footer button {
+      padding:10px 16px; border:none; border-radius:8px;
+      background:var(--pallas); color:#fff; font-size:15px; cursor:pointer;
+    }
+    footer button:hover { filter:brightness(.95); }
+
+    /* PALLAS Avatar Pulsing */
+    #logo {
+      width:48px; height:48px; border-radius:50%; background:var(--pallas);
+      display:grid; place-items:center; color:#fff; margin-right:8px;
+      position:relative;
+    }
+    #logo.listening::after {
+      content:""; position:absolute; inset:0; border-radius:50%;
+      border:2px solid rgba(42,93,132,.4); animation:pulse 1.6s infinite;
+    }
     @keyframes pulse {
-      0% { transform:scale(1.05); opacity:.0; }
-      30%{ opacity:.8; }
-      100%{ transform:scale(1.5); opacity:0; }
+      0%{transform:scale(1); opacity:.6;} 
+      70%{transform:scale(1.4); opacity:0;} 
+      100%{opacity:0;}
     }
-    .logo svg { width:32px; height:32px; }
-
-    .progress { margin:14px 0 4px; height:10px; background:#edf2f7; border-radius:999px; overflow:hidden; }
-    .bar { height:100%; width:0%; background:linear-gradient(90deg,#2a5d84,#3b7aa9); transition:width .35s ease; }
-    .progtext { font-size:13px; color:var(--muted); margin-bottom:10px; }
-
-    .card { border:1px solid #e6eef5; background:#fafcfe; border-radius:12px; padding:14px; }
-    .label { font-size:12px; color:#5a6b7a; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-    #expected { font-size:18px; font-weight:700; margin:0 0 10px; }
-    #actionBtn { background:#44576b; }
-
-    #player, #ready { width:100%; margin-top:10px; }
-    .hint { color:#5a6b7a; font-size:13px; }
   </style>
-
-  <!-- Manifest + Service Worker -->
-  <link rel="manifest" href="manifest.json">
-  <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js").catch(()=>{});
-    }
-  </script>
 </head>
 <body>
-  <div class="wrap">
-    <div class="toprow">
-      <div id="logo" class="logo" title="PALLAS">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 1.8a3.2 3.2 0 0 1 3.2 3.2v6a3.2 3.2 0 1 1-6.4 0v-6A3.2 3.2 0 0 1 12 1.8z"/>
-          <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v4"/><path d="M8 22h8"/>
-        </svg>
-      </div>
-      <div>
-        <h1>PALLAS – Sprachdemo</h1>
-        <div class="toprow">
-          <button id="micToggle">🎤 Mikro an</button>
-          <span id="micStatus">Inaktiv</span>
-          <button id="reset">Zurück auf Anfang</button>
-        </div>
-      </div>
+  <header>
+    <div id="logo">
+      🎤
     </div>
+    <h1>PALLAS – Pflegeassistenz</h1>
+  </header>
+  <div class="progress"><div id="bar" class="bar"></div></div>
 
-    <div class="progtext"><span id="progNum">0</span>/<span id="progTotal">0</span> abgeschlossen</div>
-    <div class="progress"><div id="bar" class="bar"></div></div>
+  <main id="chat">
+    <!-- Chat-Verlauf wird hier generiert -->
+  </main>
 
-    <div class="card" style="margin-top:12px;">
-      <div class="label">Erwarteter Befehl</div>
-      <div id="expected">Hey PALLAS</div>
-      <button id="actionBtn">Sagen: Hey PALLAS</button>
-      <p class="hint">Stichwörter reichen (z. B. „Noradrenalin“, „Weiter“, „Ja“, „Nein“).</p>
-    </div>
+  <footer>
+    <button id="micToggle">🎤 Mikro an</button>
+    <button id="reset">🔄 Reset</button>
+  </footer>
 
-    <div class="card" style="margin-top:12px;">
-      <div class="label">Letztes erkanntes Sprachkommando</div>
-      <div id="heard">–</div>
-    </div>
-
-    <audio id="player" controls></audio>
-    <audio id="ready" preload="auto" src="1.mp3"></audio>
-  </div>
+  <audio id="player" controls style="display:none"></audio>
+  <audio id="ready" preload="auto" src="1.mp3"></audio>
 
   <script>
+    // ---------- Schritte ----------
     const steps = [
       { label:"Hey PALLAS", phrases:["hey","pallas","hallo"], audios:["1.mp3","2.mp3"] },
       { label:"Noradrenalin Perfusor", phrases:["noradrenalin","perfusor"], audios:["3.mp3"] },
@@ -107,130 +116,109 @@
       { label:"Nein, danke", phrases:["nein","danke"], audios:["12.mp3"] }
     ];
 
+    // ---------- State ----------
     let idx = 0, queue = [];
-    let recognition = null, listening = false, swLocked = false;
+    let recognition=null, listening=false, swLocked=false;
     const total = steps.length;
 
-    const player = document.getElementById("player");
-    const readyPing = document.getElementById("ready");
-    const micBtn = document.getElementById("micToggle");
-    const micStatus = document.getElementById("micStatus");
-    const resetBtn = document.getElementById("reset");
-    const actionBtn = document.getElementById("actionBtn");
-    const expected = document.getElementById("expected");
-    const heard = document.getElementById("heard");
-    const bar = document.getElementById("bar");
-    const progNum = document.getElementById("progNum");
-    const progTotal = document.getElementById("progTotal");
-    const logo = document.getElementById("logo");
-
-    progTotal.textContent = total;
+    // ---------- UI ----------
+    const chat=document.getElementById("chat");
+    const player=document.getElementById("player");
+    const readyPing=document.getElementById("ready");
+    const bar=document.getElementById("bar");
+    const logo=document.getElementById("logo");
+    const micBtn=document.getElementById("micToggle");
+    const resetBtn=document.getElementById("reset");
 
     const normalize = s => (s||"").toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
       .replace(/[^a-z0-9äöüß\s]/g,' ').replace(/\s+/g,' ').trim();
 
-    function updateUI() {
-      if (idx < total) {
-        expected.textContent = steps[idx].label;
-        actionBtn.textContent = "Sagen: " + steps[idx].label;
-        actionBtn.disabled = false;
-      } else {
-        expected.textContent = "Ende der Interaktion";
-        actionBtn.textContent = "Fertig";
-        actionBtn.disabled = true;
-      }
-      const done = Math.min(idx, total);
-      progNum.textContent = done;
-      bar.style.width = Math.round((done/total)*100) + "%";
+    function addMsg(text, who){
+      const div=document.createElement("div");
+      div.className="msg "+who;
+      div.textContent=text;
+      chat.appendChild(div);
+      chat.scrollTop=chat.scrollHeight;
     }
 
-    function playStep(step) {
-      queue = [...step.audios];
-      swLocked = true;
-      stopListeningSilently();
-      playNext(async () => {
-        try { await readyPing.play().catch(()=>{}); } catch(e) {}
-        swLocked = false;
-        setTimeout(() => { if (listening) startListening(); }, 220);
-        idx++; updateUI();
+    function updateProgress(){
+      const pct=Math.round((idx/total)*100);
+      bar.style.width=pct+"%";
+    }
+
+    // ---------- Audio ----------
+    function playStep(step){
+      queue=[...step.audios];
+      swLocked=true; stopListeningSilently();
+      playNext(async ()=>{
+        try{await readyPing.play();}catch{}
+        swLocked=false; setTimeout(()=>{if(listening) startListening();},200);
+        idx++; updateProgress();
       });
+      addMsg(step.label,"pallas");
     }
 
-    function playNext(done) {
-      if (queue.length === 0) { done && done(); return; }
-      const nextFile = queue.shift();
-      player.src = nextFile;
-      player.onended = () => playNext(done);
-      player.onerror = () => playNext(done);
-      player.play().catch(() => playNext(done));
+    function playNext(done){
+      if(queue.length===0){done&&done();return;}
+      const nextFile=queue.shift();
+      player.src=nextFile;
+      player.onended=()=>playNext(done);
+      player.onerror=()=>playNext(done);
+      player.play().catch(()=>playNext(done));
     }
 
-    function createRecognizer() {
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) return null;
-      const r = new SR();
-      r.lang = "de-DE"; r.continuous = true; r.interimResults = false;
-      r.onresult = (ev) => {
-        if (swLocked) return;
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-          const res = ev.results[i];
-          if (!res.isFinal) continue;
-          const textRaw = res[0].transcript || "";
-          const text = normalize(textRaw);
-          heard.textContent = textRaw.trim();
+    // ---------- Speech ----------
+    function createRecognizer(){
+      const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+      if(!SR) return null;
+      const r=new SR();
+      r.lang="de-DE"; r.continuous=true; r.interimResults=false;
+      r.onresult=(ev)=>{
+        if(swLocked) return;
+        for(let i=ev.resultIndex;i<ev.results.length;i++){
+          const res=ev.results[i]; if(!res.isFinal) continue;
+          const raw=res[0].transcript||""; const text=normalize(raw);
+          addMsg(raw,"user");
           handleCommand(text);
         }
       };
-      r.onend = () => { if (listening && !swLocked) { try { r.start(); } catch {} } };
+      r.onend=()=>{if(listening&&!swLocked){try{r.start();}catch{}}};
       return r;
     }
 
-    function startListening() {
-      if (!recognition) recognition = createRecognizer();
-      if (!recognition) { micStatus.textContent = "Nicht unterstützt"; return; }
-      try { recognition.start(); } catch {}
-      listening = true;
-      micStatus.textContent = "Aktiv – hört zu";
-      micBtn.textContent = "🎤 Mikro aus";
-      logo.classList.add("listening");
+    function startListening(){
+      if(!recognition) recognition=createRecognizer();
+      if(!recognition){micBtn.textContent="❌ Nicht unterstützt";return;}
+      try{recognition.start();}catch{}
+      listening=true; micBtn.textContent="🎤 Mikro aus"; logo.classList.add("listening");
+    }
+    function stopListeningSilently(){try{recognition&&recognition.stop();}catch{}}
+    function stopListening(){
+      listening=false; stopListeningSilently();
+      micBtn.textContent="🎤 Mikro an"; logo.classList.remove("listening");
     }
 
-    function stopListeningSilently() { try { recognition && recognition.stop(); } catch {} }
-    function stopListening() {
-      listening = false;
-      stopListeningSilently();
-      micStatus.textContent = "Inaktiv";
-      micBtn.textContent = "🎤 Mikro an";
-      logo.classList.remove("listening");
-    }
-
-    function handleCommand(text) {
-      if (idx >= total) return;
-      const step = steps[idx];
-      for (const p of step.phrases) {
-        if (text.includes(p)) { playStep(step); return; }
+    function handleCommand(text){
+      if(idx>=total) return;
+      const step=steps[idx];
+      for(const p of step.phrases){
+        if(text.includes(p)){ playStep(step); return; }
       }
     }
 
     // ---------- Controls ----------
-    actionBtn.addEventListener('click', () => { if (idx < total) playStep(steps[idx]); });
-    micBtn.addEventListener('click', () => {
-      if (listening) {
-        stopListening();
-      } else {
-        recognition = null; // alte Instanz verwerfen
-        startListening();
-      }
+    micBtn.addEventListener("click",()=>{
+      if(listening){ stopListening(); } else { recognition=null; startListening(); }
     });
-    resetBtn.addEventListener('click', () => {
-      idx = 0; queue = [];
-      stopListening();
-      updateUI();
-      heard.textContent = "–";
+    resetBtn.addEventListener("click",()=>{
+      idx=0; queue=[]; stopListening();
+      chat.innerHTML=""; updateProgress();
     });
 
-    updateUI();
+    // ---------- Init ----------
+    updateProgress();
+    addMsg("Sag 'Hey PALLAS' um zu starten.","pallas");
   </script>
 </body>
 </html>
