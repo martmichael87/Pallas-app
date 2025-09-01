@@ -5,19 +5,17 @@
   <title>PALLAS Sprachdemo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root { --c1:#2a5d84; --bg:#f4f4f4; --ok:#2e7d32; --muted:#6b7a88; }
+    :root { --c1:#2a5d84; --bg:#f4f4f4; --muted:#6b7a88; }
     body { font-family: system-ui, Arial, sans-serif; background:var(--bg); margin:0; padding:24px; }
     .wrap { max-width:900px; margin:0 auto; background:#fff; border-radius:14px; padding:22px; box-shadow:0 10px 30px rgba(0,0,0,.08); }
-    h1 { margin:0 0 6px; color:var(--c1); font-weight:800; letter-spacing:.2px; }
+    h1 { margin:0 0 6px; color:var(--c1); font-weight:800; }
     p { color:#222; margin:6px 0 16px; }
     .toprow { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
 
-    /* Mic button + status */
     button { border:none; border-radius:10px; background:var(--c1); color:#fff; padding:12px 18px; font-size:16px; cursor:pointer; }
     button:hover { filter:brightness(.95); }
     #micStatus { font-weight:600; color:#1b2a36; }
 
-    /* Animated PALLAS logo */
     .logo {
       width:64px; height:64px; border-radius:50%;
       background:var(--c1); display:grid; place-items:center; position:relative; color:#fff;
@@ -35,21 +33,15 @@
     }
     .logo svg { width:32px; height:32px; }
 
-    /* Progress */
-    .progress {
-      margin:14px 0 4px; height:10px; background:#edf2f7; border-radius:999px; overflow:hidden;
-      box-shadow: inset 0 1px 2px rgba(0,0,0,.05);
-    }
+    .progress { margin:14px 0 4px; height:10px; background:#edf2f7; border-radius:999px; overflow:hidden; }
     .bar { height:100%; width:0%; background:linear-gradient(90deg,#2a5d84,#3b7aa9); transition:width .35s ease; }
     .progtext { font-size:13px; color:var(--muted); margin-bottom:10px; }
 
-    /* Card */
     .card { border:1px solid #e6eef5; background:#fafcfe; border-radius:12px; padding:14px; }
     .label { font-size:12px; color:#5a6b7a; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
     #expected { font-size:18px; font-weight:700; margin:0 0 10px; }
     #actionBtn { background:#44576b; }
 
-    /* Audio */
     #player, #ready { width:100%; margin-top:10px; }
     .hint { color:#5a6b7a; font-size:13px; }
   </style>
@@ -66,7 +58,6 @@
   <div class="wrap">
     <div class="toprow">
       <div id="logo" class="logo" title="PALLAS">
-        <!-- simple mic icon -->
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 1.8a3.2 3.2 0 0 1 3.2 3.2v6a3.2 3.2 0 1 1-6.4 0v-6A3.2 3.2 0 0 1 12 1.8z"/>
           <path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v4"/><path d="M8 22h8"/>
@@ -98,12 +89,10 @@
     </div>
 
     <audio id="player" controls></audio>
-    <!-- separater Player für den Ready-Ping (1.mp3), damit sich nichts verhakt -->
     <audio id="ready" preload="auto" src="1.mp3"></audio>
   </div>
 
   <script>
-    // ---------- Ablauf (Stichwörter) ----------
     const steps = [
       { label:"Hey PALLAS", phrases:["hey","pallas","hallo"], audios:["1.mp3","2.mp3"] },
       { label:"Noradrenalin Perfusor", phrases:["noradrenalin","perfusor"], audios:["3.mp3"] },
@@ -118,6 +107,130 @@
       { label:"Nein, danke", phrases:["nein","danke"], audios:["12.mp3"] }
     ];
 
-    // ---------- State ----------
-    let idx = 0;                 // aktueller Schrittindex
-    let queue = [];              /
+    let idx = 0, queue = [];
+    let recognition = null, listening = false, swLocked = false;
+    const total = steps.length;
+
+    const player = document.getElementById("player");
+    const readyPing = document.getElementById("ready");
+    const micBtn = document.getElementById("micToggle");
+    const micStatus = document.getElementById("micStatus");
+    const resetBtn = document.getElementById("reset");
+    const actionBtn = document.getElementById("actionBtn");
+    const expected = document.getElementById("expected");
+    const heard = document.getElementById("heard");
+    const bar = document.getElementById("bar");
+    const progNum = document.getElementById("progNum");
+    const progTotal = document.getElementById("progTotal");
+    const logo = document.getElementById("logo");
+
+    progTotal.textContent = total;
+
+    const normalize = s => (s||"").toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9äöüß\s]/g,' ').replace(/\s+/g,' ').trim();
+
+    function updateUI() {
+      if (idx < total) {
+        expected.textContent = steps[idx].label;
+        actionBtn.textContent = "Sagen: " + steps[idx].label;
+        actionBtn.disabled = false;
+      } else {
+        expected.textContent = "Ende der Interaktion";
+        actionBtn.textContent = "Fertig";
+        actionBtn.disabled = true;
+      }
+      const done = Math.min(idx, total);
+      progNum.textContent = done;
+      bar.style.width = Math.round((done/total)*100) + "%";
+    }
+
+    function playStep(step) {
+      queue = [...step.audios];
+      swLocked = true;
+      stopListeningSilently();
+      playNext(async () => {
+        try { await readyPing.play().catch(()=>{}); } catch(e) {}
+        swLocked = false;
+        setTimeout(() => { if (listening) startListening(); }, 220);
+        idx++; updateUI();
+      });
+    }
+
+    function playNext(done) {
+      if (queue.length === 0) { done && done(); return; }
+      const nextFile = queue.shift();
+      player.src = nextFile;
+      player.onended = () => playNext(done);
+      player.onerror = () => playNext(done);
+      player.play().catch(() => playNext(done));
+    }
+
+    function createRecognizer() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) return null;
+      const r = new SR();
+      r.lang = "de-DE"; r.continuous = true; r.interimResults = false;
+      r.onresult = (ev) => {
+        if (swLocked) return;
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const res = ev.results[i];
+          if (!res.isFinal) continue;
+          const textRaw = res[0].transcript || "";
+          const text = normalize(textRaw);
+          heard.textContent = textRaw.trim();
+          handleCommand(text);
+        }
+      };
+      r.onend = () => { if (listening && !swLocked) { try { r.start(); } catch {} } };
+      return r;
+    }
+
+    function startListening() {
+      if (!recognition) recognition = createRecognizer();
+      if (!recognition) { micStatus.textContent = "Nicht unterstützt"; return; }
+      try { recognition.start(); } catch {}
+      listening = true;
+      micStatus.textContent = "Aktiv – hört zu";
+      micBtn.textContent = "🎤 Mikro aus";
+      logo.classList.add("listening");
+    }
+
+    function stopListeningSilently() { try { recognition && recognition.stop(); } catch {} }
+    function stopListening() {
+      listening = false;
+      stopListeningSilently();
+      micStatus.textContent = "Inaktiv";
+      micBtn.textContent = "🎤 Mikro an";
+      logo.classList.remove("listening");
+    }
+
+    function handleCommand(text) {
+      if (idx >= total) return;
+      const step = steps[idx];
+      for (const p of step.phrases) {
+        if (text.includes(p)) { playStep(step); return; }
+      }
+    }
+
+    // ---------- Controls ----------
+    actionBtn.addEventListener('click', () => { if (idx < total) playStep(steps[idx]); });
+    micBtn.addEventListener('click', () => {
+      if (listening) {
+        stopListening();
+      } else {
+        recognition = null; // alte Instanz verwerfen
+        startListening();
+      }
+    });
+    resetBtn.addEventListener('click', () => {
+      idx = 0; queue = [];
+      stopListening();
+      updateUI();
+      heard.textContent = "–";
+    });
+
+    updateUI();
+  </script>
+</body>
+</html>
