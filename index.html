@@ -126,7 +126,8 @@
         text:    "Hallo, was kann ich für dich tun?"
       },
       {
-        phrases: ["noradrenalin","perfusor"],
+        // Noradrenalin robust: akzeptiert „nor adrenalin“, „nur adrenalin“, „nora“, „noradrenaline“ etc.
+        phrases: ["noradrenalin","nor adrenalin","nur adrenalin","nora","noradrenaline","nora adrenalin","perfusor"],
         audios:  ["3.mp3"],
         text:    "Alles klar, einen Noradrenalin Perfusor also. Welche Dosierung möchtest du vorbereiten?"
       },
@@ -207,7 +208,34 @@
         .trim();
     }
 
-    // 🔧 Robust: Wiederholen-Check
+    // Sichtbare, „schöne“ Darstellung für den Chat (korrigiert häufige ASR-Fehler)
+    function prettify(raw) {
+      let t = " " + normalize(raw) + " ";
+
+      // Korrekturen (Reihenfolge bewusst)
+      t = t.replace(/\bnor adrenalin(e)?\b/g, " noradrenalin ");
+      t = t.replace(/\bnur adrenalin(e)?\b/g, " noradrenalin ");
+      t = t.replace(/\bnora adrenalin(e)?\b/g, " noradrenalin ");
+      t = t.replace(/\bnora\b/g, " noradrenalin ");
+      t = t.replace(/\bnoradrenaline?\b/g, " noradrenalin ");
+
+      t = t.replace(/\bperfusor\b/g, " Perfusor ");
+      t = t.replace(/\b20 mikrogramm\b/g, " 20 Mikrogramm ");
+      t = t.replace(/\b50 ml\b/g, " 50 ml ");
+      t = t.replace(/\bweiter\b/g, " weiter ");
+      t = t.replace(/\bja\b/g, " ja ");
+      t = t.replace(/\bnein\b/g, " nein ");
+
+      // Aufräumen
+      t = t.replace(/\s+/g, " ").trim();
+
+      // Satzanfang groß
+      if (t.length) t = t[0].toUpperCase() + t.slice(1);
+
+      return t || raw;
+    }
+
+    // Robust: Wiederholen-Check
     function isRepeat(t) {
       return (
         t.includes("nochmal") ||
@@ -278,10 +306,12 @@
           if (!res.isFinal) continue;
 
           const raw  = res[0].transcript || "";
-          const text = normalize(raw);
+          const norm = normalize(raw);
 
-          addMsg(raw, "user");
-          handleCommand(text);
+          // **Anzeige im Chat** mit Korrekturen
+          addMsg(prettify(raw), "user");
+
+          handleCommand(norm);
         }
       };
 
@@ -321,21 +351,40 @@
     function handleCommand(text) {
       if (idx >= total) return;
 
-      // Wiederholen erkennen
+      // Wiederholen (global)
       if (isRepeat(text)) {
         addMsg("Ok, nochmal.", "pallas");
         repeatSfx.play().catch(() => {});
-        playStep(steps[idx]);
+        playStep(steps[idx]); // aktuellen Schritt neu
         return;
       }
 
-      // Normaler Ablauf
       const step = steps[idx];
-      for (const p of step.phrases) {
-        if (text.includes(p)) {
-          playStep(step);
-          return;
+
+      // Match-Logik:
+      // - Standard: irgendein Stichwort aus step.phrases
+      // - Für den Noradrenalin-Schritt (idx===1): extra tolerant
+      let matched = false;
+
+      if (idx === 1) {
+        // Trigger, wenn (Noradrenalin-Variante) ODER (Perfusor)
+        const hasNor =
+          text.includes("noradrenalin") ||
+          text.includes("nor adrenalin") ||
+          text.includes("nur adrenalin") ||
+          text.includes("nora adrenalin") ||
+          text.includes("nora") ||
+          text.includes("noradrenaline");
+        const hasPerf = text.includes("perfusor");
+        matched = hasNor || hasPerf;
+      } else {
+        for (const p of step.phrases) {
+          if (text.includes(p)) { matched = true; break; }
         }
+      }
+
+      if (matched) {
+        playStep(step);
       }
     }
 
