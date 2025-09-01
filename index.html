@@ -207,6 +207,19 @@
         .trim();
     }
 
+    // 🔧 Robust: Wiederholen-Check
+    function isRepeat(t) {
+      return (
+        t.includes("nochmal") ||
+        t.includes("noch mal") ||
+        t.includes("noch einmal") ||
+        t.includes("nochma") ||
+        t.includes("wiederholen") ||
+        t.includes("repeat") ||
+        (t.includes("noch") && t.includes("mal"))
+      );
+    }
+
     function addMsg(text, who) {
       const d = document.createElement("div");
       d.className = "msg " + who;
@@ -308,13 +321,15 @@
     function handleCommand(text) {
       if (idx >= total) return;
 
-      if (text.includes("nochmal")) {
+      // Wiederholen erkennen
+      if (isRepeat(text)) {
         addMsg("Ok, nochmal.", "pallas");
         repeatSfx.play().catch(() => {});
         playStep(steps[idx]);
         return;
       }
 
+      // Normaler Ablauf
       const step = steps[idx];
       for (const p of step.phrases) {
         if (text.includes(p)) {
