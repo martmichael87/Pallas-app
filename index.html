@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>PALLAS Sprachdemo</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
   <style>
     :root { --pallas:#2a5d84; --bg:#eef3f8; --bubble-user:#daf0ff; --bubble-pallas:#ffffff; }
     body { margin:0; font-family:'Segoe UI', Roboto, Arial, sans-serif; background:var(--bg); display:flex; flex-direction:column; height:100vh; }
@@ -24,20 +23,15 @@
     footer .left, footer .right { display:flex; gap:10px; align-items:center; }
     footer button { padding:10px 16px; border:none; border-radius:8px; background:var(--pallas); color:#fff; font-size:15px; cursor:pointer; }
     footer button:hover { filter:brightness(.95); }
-    /* Präzisionsmodus Toggle */
     .toggle { display:flex; align-items:center; gap:8px; font-size:14px; color:#173249; }
     .switch { position:relative; width:44px; height:24px; background:#cbd5e1; border-radius:999px; cursor:pointer; }
     .switch::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .2s ease; }
     .switch.on { background:#2a5d84; }
     .switch.on::after { left:23px; }
   </style>
-
-  <!-- PWA: Manifest + Service Worker -->
   <link rel="manifest" href="manifest.json" />
   <script>
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("service-worker.js").catch(()=>{});
-    }
+    if ("serviceWorker" in navigator) { navigator.serviceWorker.register("service-worker.js").catch(()=>{}); }
   </script>
 </head>
 <body>
@@ -63,7 +57,6 @@
     </div>
   </footer>
 
-  <!-- Audio-Player -->
   <audio id="player" controls style="display:none"></audio>
   <audio id="ready"  preload="auto" src="1.mp3"></audio>
   <audio id="repeat" preload="auto" src="nochmal.mp3"></audio>
@@ -72,7 +65,6 @@
     /* ---------- Schritte ---------- */
     const steps = [
       { phrases:["hey","pallas","hallo"], audios:["1.mp3","2.mp3"], text:"Hallo, was kann ich für dich tun?" },
-      // Noradrenalin: tolerante Varianten + „perfusor“
       { phrases:["noradrenalin","nor adrenalin","nur adrenalin","nora","noradrenaline","nora adrenalin","perfusor"], audios:["3.mp3"], text:"Alles klar, einen Noradrenalin Perfusor also. Welche Dosierung möchtest du vorbereiten?" },
       { phrases:["50","20 mikrogramm"], audios:["4.mp3"], text:"In Ordnung. Du möchtest also eine 50ml Noradrenalinperfursor Spritze mit einer Dosierung von 20 Mikrogramm pro Milliliter vorbereiten, habe ich das richtig verstanden?" },
       { phrases:["ja","genau","richtig"], audios:["5.mp3"], text:"Ok du benötigst dafür folgende Materialien: Ein Medikamententablett, Alkoholisches Desinfektionsmittel, Aufziehkanüle, Perfusorspritze, Brechampulle Noradrenalin 1mg auf 1 Milliliter, 50 ml NaCl, Perfusioleitung, Einmalhandschuhe und Abwurfbehälter. Wenn dir das zu schnell ging, sag einfach „Nochmal“, wenn du so weit bist sag einfach „Weiter“." },
@@ -86,7 +78,8 @@
     ];
 
     /* ---------- State & UI ---------- */
-    let idx=0, queue=[]; let recognition=null, listening=false, swLocked=false;
+    let idx=0, queue=[];
+    let recognition=null, listening=false, swLocked=false;
     const total=steps.length;
     const chat=document.getElementById("chat");
     const player=document.getElementById("player");
@@ -100,100 +93,62 @@
     let precision=false; // Präzisionsmodus aus
 
     /* ---------- Utils ---------- */
-    function normalize(s=""){
-      return s.toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
-        .replace(/[^a-z0-9äöüß\s]/g," ")
-        .replace(/\s+/g," ").trim();
-    }
-
-    // Chat-Text hübsch machen (Korrekturen)
+    function normalize(s=""){ return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9äöüß\s]/g," ").replace(/\s+/g," ").trim(); }
     function prettify(raw){
       let t=" "+normalize(raw)+" ";
-      t=t.replace(/\bnor adrenalin(e)?\b/g," noradrenalin ");
-      t=t.replace(/\bnur adrenalin(e)?\b/g," noradrenalin ");
-      t=t.replace(/\bnora adrenalin(e)?\b/g," noradrenalin ");
-      t=t.replace(/\bnora\b/g," noradrenalin ");
-      t=t.replace(/\bnoradrenaline?\b/g," noradrenalin ");
-      t=t.replace(/\bperfusor\b/g," Perfusor ");
-      t=t.replace(/\b20 mikrogramm\b/g," 20 Mikrogramm ");
-      t=t.replace(/\b50 ml\b/g," 50 ml ");
-      t=t.replace(/\bweiter\b/g," weiter ");
-      t=t.replace(/\bja\b/g," ja ");
-      t=t.replace(/\bnein\b/g," nein ");
-      t=t.replace(/\s+/g," ").trim();
-      if(t.length) t=t[0].toUpperCase()+t.slice(1);
-      return t || raw;
+      t=t.replace(/\bnor adrenalin(e)?\b/g," noradrenalin ").replace(/\bnur adrenalin(e)?\b/g," noradrenalin ")
+       .replace(/\bnora adrenalin(e)?\b/g," noradrenalin ").replace(/\bnora\b/g," noradrenalin ").replace(/\bnoradrenaline?\b/g," noradrenalin ");
+      t=t.replace(/\bperfusor\b/g," Perfusor ").replace(/\b20 mikrogramm\b/g," 20 Mikrogramm ").replace(/\b50 ml\b/g," 50 ml ");
+      t=t.replace(/\bweiter\b/g," weiter ").replace(/\bja\b/g," ja ").replace(/\bnein\b/g," nein ");
+      t=t.replace(/\s+/g," ").trim(); if(t.length) t=t[0].toUpperCase()+t.slice(1); return t || raw;
     }
-
-    // Levenshtein-Distanz (einfach, effizient genug für kurze Wörter)
-    function lev(a,b){
-      const m=a.length, n=b.length;
-      const dp=new Array(n+1);
-      for(let j=0;j<=n;j++) dp[j]=j;
-      for(let i=1;i<=m;i++){
-        let prev=dp[0]; dp[0]=i;
-        for(let j=1;j<=n;j++){
-          const tmp=dp[j];
-          dp[j]=Math.min(
-            dp[j]+1,
-            dp[j-1]+1,
-            prev + (a[i-1]===b[j-1]?0:1)
-          );
-          prev=tmp;
-        }
-      }
-      return dp[n];
-    }
-
-    // Fuzzy-Include: true wenn text eine phrase (oder nah dran) enthält
+    function lev(a,b){ const m=a.length,n=b.length,dp=new Array(n+1); for(let j=0;j<=n;j++) dp[j]=j; for(let i=1;i<=m;i++){ let prev=dp[0]; dp[0]=i; for(let j=1;j<=n;j++){ const tmp=dp[j]; dp[j]=Math.min(dp[j]+1, dp[j-1]+1, prev+(a[i-1]===b[j-1]?0:1)); prev=tmp; } } return dp[n]; }
     function fuzzyIncludes(text, phrase){
       if(text.includes(phrase)) return true;
       const words=text.split(" ");
-      // 1) Wort-zu-Wort nahe genug?
-      for(const w of words){
-        if(lev(w, phrase) <= 2) return true;
-      }
-      // 2) Für zweiteilige Phrasen (z.B. "nor adrenalin"): beide Teile grob vorhanden?
-      if(phrase.includes(" ")){
-        const parts=phrase.split(" ");
-        return parts.every(p=>{
-          return words.some(w => w===p || lev(w,p)<=1);
-        });
-      }
+      for(const w of words){ if(lev(w,phrase)<=2) return true; }
+      if(phrase.includes(" ")){ const parts=phrase.split(" "); return parts.every(p=>words.some(w=>w===p || lev(w,p)<=1)); }
       return false;
     }
+    function addMsg(text, who){ const d=document.createElement("div"); d.className="msg "+who; d.textContent=text; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; }
+    function updateProgress(){ bar.style.width=Math.round((idx/total)*100)+"%"; }
 
-    function addMsg(text, who){
-      const d=document.createElement("div");
-      d.className="msg "+who;
-      d.textContent=text;
-      chat.appendChild(d);
-      chat.scrollTop=chat.scrollHeight;
+    /* ---------- Audio helpers ---------- */
+    function stopAllAudio(){
+      try{ player.pause(); }catch{}
+      player.currentTime = 0;
+      queue = [];
     }
 
-    function updateProgress(){
-      bar.style.width = Math.round((idx/total)*100) + "%";
-    }
+    // zentrales Abspielen: beliebigen Schritt starten; advance=true => Fortschritt erhöhen
+    function playStepAt(index, {advance=true} = {}){
+      const step = steps[index];
+      addMsg(step.text, "pallas");
 
-    /* ---------- Audio ---------- */
-    function playStep(step){
-      addMsg(step.text,"pallas");
-      queue=[...step.audios];
-      swLocked=true; stopListeningSilently();
-      playNext(async ()=>{
-        try{ await readyPing.play(); }catch(e){}
-        swLocked=false;
+      queue = [...step.audios];
+      swLocked = true;
+      stopListeningSilently();
+
+      const afterAll = async () => {
+        try { await readyPing.play(); } catch(e) {}
+        swLocked = false;
         setTimeout(()=>{ if(listening) startListening(); }, 200);
-        idx++; updateProgress();
-      });
+        if (advance) {
+          // nur im normalen Ablauf erhöhen
+          if (index === idx) idx++;
+        }
+        updateProgress();
+      };
+
+      playNext(afterAll);
     }
+
     function playNext(done){
       if(queue.length===0){ done && done(); return; }
-      const f=queue.shift();
-      player.src=f;
-      player.onended=()=>playNext(done);
-      player.onerror=()=>playNext(done);
+      const f = queue.shift();
+      player.src = f;
+      player.onended = () => playNext(done);
+      player.onerror = () => playNext(done);
       player.play().catch(()=>playNext(done));
     }
 
@@ -207,71 +162,59 @@
         if(swLocked) return;
         for(let i=ev.resultIndex;i<ev.results.length;i++){
           const res=ev.results[i]; if(!res.isFinal) continue;
-          const raw=res[0].transcript||"";
-          const norm=normalize(raw);
-
-          // Chat anzeigen – bereinigt
+          const raw=res[0].transcript||""; const norm=normalize(raw);
           addMsg(prettify(raw), "user");
-
           handleCommand(norm);
         }
       };
       r.onend=()=>{ if(listening && !swLocked){ try{ r.start(); }catch{} } };
       return r;
     }
-
-    function startListening(){
-      if(!recognition) recognition=createRecognizer();
-      if(!recognition){ micBtn.textContent="❌ Nicht unterstützt"; return; }
-      try{ recognition.start(); }catch{}
-      listening=true; micBtn.textContent="🎤 Mikro aus"; logo.classList.add("listening");
-    }
+    function startListening(){ if(!recognition) recognition=createRecognizer(); if(!recognition){ micBtn.textContent="❌ Nicht unterstützt"; return; } try{ recognition.start(); }catch{} listening=true; micBtn.textContent="🎤 Mikro aus"; logo.classList.add("listening"); }
     function stopListeningSilently(){ try{ recognition && recognition.stop(); }catch{} }
     function stopListening(){ listening=false; stopListeningSilently(); micBtn.textContent="🎤 Mikro an"; logo.classList.remove("listening"); }
 
     /* ---------- Command Handling ---------- */
     function isRepeat(t){
-      return (
-        t.includes("nochmal") || t.includes("noch mal") || t.includes("noch einmal") ||
-        t.includes("nochma")  || t.includes("wiederholen") || t.includes("repeat") ||
-        (t.includes("noch") && t.includes("mal"))
-      );
+      return ( t.includes("nochmal") || t.includes("noch mal") || t.includes("noch einmal") ||
+               t.includes("nochma")  || t.includes("wiederholen") || t.includes("repeat") ||
+               (t.includes("noch") && t.includes("mal")) );
     }
 
     function handleCommand(text){
       if(idx>=total) return;
 
-      // Präzisionsmodus: außer beim allerersten Schritt (Weckwort) nur reagieren,
-      // wenn "pallas" im Text vorkommt (z.B. "pallas weiter", "pallas nochmal", ...).
-      if(precision && idx>0 && !text.includes("pallas")){
-        return; // ignorieren
-      }
+      // Präzisionsmodus: ab Schritt 1 nur reagieren, wenn "pallas" gesagt wird
+      if(precision && idx>0 && !text.includes("pallas")) return;
 
-      // "nochmal" ist immer möglich
+      // --- Wiederholen ---
       if(isRepeat(text)){
         addMsg("Ok, nochmal.", "pallas");
         repeatSfx.play().catch(()=>{});
-        playStep(steps[idx]); // aktuellen Schritt erneut
+        if (swLocked) {
+          // während Audio: aktuelle Antwort neu starten
+          stopAllAudio();
+          playStepAt(idx, {advance:false});
+        } else {
+          // nach Abschluss: letzte Antwort (idx-1) wiederholen
+          const prev = Math.max(0, idx - 1);
+          playStepAt(prev, {advance:false});
+        }
         return;
       }
 
+      // --- Normaler Ablauf ---
       const step=steps[idx];
-
-      // Allgemeines Matching (fuzzy)
       let matched=false;
-      for(const phr of step.phrases){
-        if (fuzzyIncludes(text, phr)) { matched=true; break; }
-      }
+      for(const phr of step.phrases){ if(fuzzyIncludes(text, phr)){ matched=true; break; } }
 
-      // Spezialbehandlung Step 2 (Noradrenalin/Perfusor): noch toleranter
       if(!matched && idx===1){
-        const hasNor = ["noradrenalin","nor adrenalin","nur adrenalin","nora adrenalin","nora","noradrenaline"]
-          .some(p => fuzzyIncludes(text, p));
-        const hasPerf = fuzzyIncludes(text, "perfusor");
+        const hasNor = ["noradrenalin","nor adrenalin","nur adrenalin","nora adrenalin","nora","noradrenaline"].some(p=>fuzzyIncludes(text,p));
+        const hasPerf = fuzzyIncludes(text,"perfusor");
         matched = hasNor || hasPerf;
       }
 
-      if(matched) playStep(step);
+      if(matched) playStepAt(idx, {advance:true});
     }
 
     /* ---------- Controls ---------- */
