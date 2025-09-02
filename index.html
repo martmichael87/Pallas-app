@@ -31,8 +31,10 @@
     .switch::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; transition:left .2s ease; }
     .switch.on { background:#2a5d84; }
     .switch.on::after { left:23px; }
+    .textinput { flex:1; padding:10px; border:1px solid #ccc; border-radius:8px; font-size:15px; }
   </style>
 
+  <!-- (optional) PWA -->
   <link rel="manifest" href="manifest.json" />
   <script>
     if ("serviceWorker" in navigator) { navigator.serviceWorker.register("service-worker.js").catch(()=>{}); }
@@ -48,19 +50,8 @@
 
   <main id="chat"></main>
 
-  <footer>
-    <div class="left">
-      <button id="micToggle" class="iconbtn" aria-label="Mikrofon umschalten" title="Mikrofon umschalten">🎤</button>
-      <span id="micDot" class="dot red" title="Mikro aus"></span>
-      <button id="reset" class="iconbtn" aria-label="Reset" title="Zurücksetzen">🔄</button>
-    </div>
-    <div class="right">
-      <div class="toggle" title="Wenn an, dann nur Befehle mit Präfix ‚Pallas …‘ (z. B. ‚Pallas weiter‘).">
-        <div id="precSwitch" class="switch"></div>
-        <span>Präzisionsmodus</span>
-      </div>
-    </div>
-  </footer>
+  <!-- Footer wird dynamisch je nach Support aufgebaut -->
+  <footer id="controls"></footer>
 
   <!-- Audio -->
   <audio id="player" preload="auto" controls style="display:none"></audio>
@@ -68,7 +59,7 @@
   <audio id="repeat" preload="auto" src="nochmal.mp3"></audio>
 
   <script>
-    /* ---------- Schritte ---------- */
+    /* ======= Daten & State ======= */
     const steps = [
       { phrases:["hey","pallas","hallo"], audios:["1.mp3","2.mp3"], text:"Hallo, was kann ich für dich tun?" },
       { phrases:["noradrenalin","nor adrenalin","nur adrenalin","nora","noradrenaline","nora adrenalin","perfusor"], audios:["3.mp3"], text:"Alles klar, einen Noradrenalin Perfusor also. Welche Dosierung möchtest du vorbereiten?" },
@@ -83,25 +74,20 @@
       { phrases:["nein","danke"], audios:["12.mp3"], text:"Ok, gern gesehen." }
     ];
 
-    /* ---------- State & UI ---------- */
-    let idx=0, queue=[];
-    let recognition=null, listening=false, swLocked=false;
-    const total=steps.length;
-
     const chat=document.getElementById("chat");
+    const bar=document.getElementById("bar");
+    const logo=document.getElementById("logo");
     const player=document.getElementById("player");
     const readyPing=document.getElementById("ready");
     const repeatSfx=document.getElementById("repeat");
+    const controls=document.getElementById("controls");
 
-    const bar=document.getElementById("bar");
-    const logo=document.getElementById("logo");
-    const micBtn=document.getElementById("micToggle");
-    const micDot=document.getElementById("micDot");
-    const resetBtn=document.getElementById("reset");
-    const precSwitch=document.getElementById("precSwitch");
-    let precision=false;
+    let recognition=null, listening=false, swLocked=false;
+    let idx=0, queue=[];
+    const total=steps.length;
+    let precision=false; // Präzisionsmodus für Sprachsteuerung
 
-    /* ---------- Utils ---------- */
+    /* ======= Utilities ======= */
     function normalize(s=""){
       return s.toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
@@ -116,6 +102,8 @@
       t=t.replace(/\bweiter\b/g," weiter ").replace(/\bja\b/g," ja ").replace(/\bnein\b/g," nein ");
       t=t.replace(/\s+/g," ").trim(); if(t.length) t=t[0].toUpperCase()+t.slice(1); return t || raw;
     }
+    function addMsg(text, who){ const d=document.createElement("div"); d.className="msg "+who; d.textContent=text; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; }
+    function updateProgress(){ bar.style.width=Math.round((idx/total)*100)+"%"; }
     function lev(a,b){ const m=a.length,n=b.length,dp=new Array(n+1); for(let j=0;j<=n;j++) dp[j]=j; for(let i=1;i<=m;i++){ let prev=dp[0]; dp[0]=i; for(let j=1;j<=n;j++){ const tmp=dp[j]; dp[j]=Math.min(dp[j]+1, dp[j-1]+1, prev+(a[i-1]===b[j-1]?0:1)); prev=tmp; } } return dp[n]; }
     function fuzzyIncludes(text, phrase){
       if(text.includes(phrase)) return true;
@@ -124,74 +112,85 @@
       if(phrase.includes(" ")){ const parts=phrase.split(" "); return parts.every(p=>words.some(w=>w===p || lev(w,p)<=1)); }
       return false;
     }
-    function addMsg(text, who){ const d=document.createElement("div"); d.className="msg "+who; d.textContent=text; chat.appendChild(d); chat.scrollTop=chat.scrollHeight; }
-    function updateProgress(){ bar.style.width=Math.round((idx/total)*100)+"%"; }
-
-    /* ---------- Audio helpers ---------- */
-    function stopAllAudio(){
-      try{ player.pause(); }catch{}
-      player.currentTime = 0;
-      queue = [];
+    function isRepeat(t){
+      return ( t.includes("nochmal") || t.includes("noch mal") || t.includes("noch einmal") ||
+               t.includes("nochma")  || t.includes("wiederholen") || t.includes("repeat") ||
+               (t.includes("noch") && t.includes("mal")) );
     }
 
-    // Ready-Ping sofort & „snappy“ abspielen
+    /* ======= Audio-Flow (mit snappy Ready-Ping) ======= */
+    function stopAllAudio(){ try{ player.pause(); }catch{} player.currentTime=0; queue=[]; }
     function playReadyNow(){
       try {
-        readyPing.pause();
-        readyPing.currentTime = 0;
-        readyPing.playbackRate = 1.15;
-        readyPing.preservesPitch = true; // stabiler Klang
+        readyPing.pause(); readyPing.currentTime=0;
+        readyPing.playbackRate=1.15; readyPing.preservesPitch=true;
         readyPing.play().catch(()=>{});
       } catch(e) {}
     }
-
     function playStepAt(index, {advance=true} = {}){
       const step = steps[index];
       addMsg(step.text, "pallas");
-
-      queue = [...step.audios];
-      swLocked = true;
-      stopListeningSilently();
-
+      queue=[...step.audios];
+      swLocked=true; stopListeningSilently();
       playNext(() => {
-        // falls aus irgendeinem Grund der ontimeupdate-Preroll nicht gegriffen hat:
         playReadyNow();
-        swLocked = false;
+        swLocked=false;
         setTimeout(()=>{ if(listening) startListening(); }, 30);
-        if (advance) { if (index === idx) idx++; }
+        if (advance && index===idx) idx++;
         updateProgress();
       });
     }
-
     function playNext(done){
       if(queue.length===0){ done && done(); return; }
       const f = queue.shift();
-      player.src = f;
-      player.preload = "auto";
-      let readyTriggered = false;
-
-      // Preroll: wenige ms vor Ende schon Ready-Ping starten, wenn dies die letzte Datei ist
-      player.ontimeupdate = () => {
-        if (readyTriggered) return;
-        if (queue.length===0 && player.duration && (player.duration - player.currentTime) <= 0.08) {
-          readyTriggered = true;
-          playReadyNow();
+      player.src=f;
+      player.preload="auto";
+      let readyTriggered=false;
+      player.ontimeupdate=()=>{ // Preroll ~80ms vor Ende
+        if(readyTriggered) return;
+        if(queue.length===0 && player.duration && (player.duration - player.currentTime) <= 0.08){
+          readyTriggered=true; playReadyNow();
         }
       };
-
-      player.onended = () => {
-        if (queue.length>0) {
-          playNext(done);
-        } else {
-          done && done();
-        }
-      };
-      player.onerror = () => { if (queue.length>0) playNext(done); else done && done(); };
-
-      player.play().catch(()=>{ if (queue.length>0) playNext(done); else done && done(); });
+      player.onended=()=>{ if(queue.length>0) playNext(done); else done&&done(); };
+      player.onerror=()=>{ if(queue.length>0) playNext(done); else done&&done(); };
+      player.play().catch(()=>{ if(queue.length>0) playNext(done); else done&&done(); });
     }
 
-    /* ---------- Speech ---------- */
+    /* ======= Command Handling (für Speech & Text) ======= */
+    function handleCommand(inputText){
+      const text = normalize(inputText);
+      if(idx>=steps.length) return;
+
+      // Wiederholen
+      if(isRepeat(text)){
+        addMsg("Ok, nochmal.", "pallas");
+        repeatSfx.play().catch(()=>{});
+        if (swLocked) { stopAllAudio(); playStepAt(idx, {advance:false}); }
+        else { const prev=Math.max(0, idx-1); playStepAt(prev, {advance:false}); }
+        return;
+      }
+
+      // Präzisionsmodus: nur für Sprachsteuerung relevant; Text-Eingabe ignoriert das
+      const speechMode = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      if(speechMode && precision && idx>0 && !text.includes("pallas")) return;
+
+      // Normaler Ablauf
+      const step = steps[idx];
+      let matched=false;
+      for(const phr of step.phrases){ if(fuzzyIncludes(text, phr)){ matched=true; break; } }
+
+      // Extra tolerant bei Schritt 2 (Noradrenalin/Perfusor)
+      if(!matched && idx===1){
+        const hasNor = ["noradrenalin","nor adrenalin","nur adrenalin","nora adrenalin","nora","noradrenaline"].some(p=>fuzzyIncludes(text,p));
+        const hasPerf = fuzzyIncludes(text,"perfusor");
+        matched = hasNor || hasPerf;
+      }
+
+      if(matched) playStepAt(idx, {advance:true});
+    }
+
+    /* ======= Speech Recognition (nur wenn verfügbar) ======= */
     function createRecognizer(){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
       if(!SR) return null;
@@ -201,80 +200,92 @@
         if(swLocked) return;
         for(let i=ev.resultIndex;i<ev.results.length;i++){
           const res=ev.results[i]; if(!res.isFinal) continue;
-          const raw=res[0].transcript||""; const norm=normalize(raw);
+          const raw=res[0].transcript||"";
           addMsg(prettify(raw), "user");
-          handleCommand(norm);
+          handleCommand(raw);
         }
       };
       r.onend=()=>{ if(listening && !swLocked){ try{ r.start(); }catch{} } };
       return r;
     }
-
     function startListening(){
       if(!recognition) recognition=createRecognizer();
-      if(!recognition){ micBtn.title="Nicht unterstützt"; return; }
+      if(!recognition){ addMsg("❌ Sprachsteuerung nicht verfügbar.","pallas"); return; }
       try{ recognition.start(); }catch{}
-      listening=true; logo.classList.add("listening");
-      micDot.classList.remove("red"); micDot.classList.add("green"); micDot.title="Mikro an";
+      listening=true; document.getElementById("micDot")?.classList.replace("red","green");
+      document.getElementById("micDot")?.setAttribute("title","Mikro an");
+      logo.classList.add("listening");
     }
     function stopListeningSilently(){ try{ recognition && recognition.stop(); }catch{} }
     function stopListening(){
-      listening=false; stopListeningSilently(); logo.classList.remove("listening");
-      micDot.classList.remove("green"); micDot.classList.add("red"); micDot.title="Mikro aus";
+      listening=false; stopListeningSilently();
+      document.getElementById("micDot")?.classList.replace("green","red");
+      document.getElementById("micDot")?.setAttribute("title","Mikro aus");
+      logo.classList.remove("listening");
     }
 
-    /* ---------- Command Handling ---------- */
-    function isRepeat(t){
-      return ( t.includes("nochmal") || t.includes("noch mal") || t.includes("noch einmal") ||
-               t.includes("nochma")  || t.includes("wiederholen") || t.includes("repeat") ||
-               (t.includes("noch") && t.includes("mal")) );
-    }
-
-    function handleCommand(text){
-      if(idx>=total) return;
-
-      if(precision && idx>0 && !text.includes("pallas")) return;
-
-      // Wiederholen
-      if(isRepeat(text)){
-        addMsg("Ok, nochmal.", "pallas");
-        repeatSfx.play().catch(()=>{});
-        if (swLocked) { stopAllAudio(); playStepAt(idx, {advance:false}); }
-        else { const prev = Math.max(0, idx - 1); playStepAt(prev, {advance:false}); }
-        return;
+    /* ======= Diagnose ======= */
+    function diagnose(){
+      if (location.protocol!=="https:") {
+        addMsg("⚠️ Hinweis: Sprachsteuerung benötigt HTTPS. Aktuell läuft die App über '"+location.protocol+"'.", "pallas");
       }
-
-      // Normaler Ablauf
-      const step=steps[idx];
-      let matched=false;
-      for(const phr of step.phrases){ if(fuzzyIncludes(text, phr)){ matched=true; break; } }
-      if(!matched && idx===1){
-        const hasNor = ["noradrenalin","nor adrenalin","nur adrenalin","nora adrenalin","nora","noradrenaline"].some(p=>fuzzyIncludes(text,p));
-        const hasPerf = fuzzyIncludes(text,"perfusor");
-        matched = hasNor || hasPerf;
+      if (!('SpeechRecognition' in window) && !('webkitSpeechRecognition' in window)) {
+        addMsg("⚠️ Dein Browser unterstützt keine Sprachsteuerung. Nutze Chrome/Edge – oder verwende das Eingabefeld unten.", "pallas");
       }
-      if(matched) playStepAt(idx, {advance:true});
     }
 
-    /* ---------- Controls ---------- */
-    micBtn.addEventListener("click", ()=>{ if(listening){ stopListening(); } else { recognition=null; startListening(); } });
-    resetBtn.addEventListener("click", ()=>{ idx=0; queue=[]; stopListening(); chat.innerHTML=""; updateProgress(); addMsg("Sag 'Hey PALLAS' um zu starten.","pallas"); });
-    precSwitch.addEventListener("click", ()=>{ precision=!precision; precSwitch.classList.toggle("on", precision); });
+    /* ======= UI dynamisch aufbauen (Speech vs. Text) ======= */
+    function buildControls(){
+      const hasSpeech = ('SpeechRecognition' in window) || ('webkitSpeechRecognition' in window);
+      if (hasSpeech){
+        controls.innerHTML = `
+          <div class="left">
+            <button id="micToggle" class="iconbtn" aria-label="Mikrofon umschalten" title="Mikrofon umschalten">🎤</button>
+            <span id="micDot" class="dot red" title="Mikro aus"></span>
+            <button id="reset" class="iconbtn" aria-label="Reset" title="Zurücksetzen">🔄</button>
+          </div>
+          <div class="right">
+            <div class="toggle" title="Wenn an: Befehle mit ‚Pallas …‘ (z. B. ‚Pallas weiter‘).">
+              <div id="precSwitch" class="switch"></div>
+              <span>Präzisionsmodus</span>
+            </div>
+          </div>`;
+        const micBtn=document.getElementById("micToggle");
+        const resetBtn=document.getElementById("reset");
+        const precSwitch=document.getElementById("precSwitch");
+        micBtn.addEventListener("click", ()=>{ if(listening){ stopListening(); } else { recognition=null; startListening(); } });
+        resetBtn.addEventListener("click", ()=>{ idx=0; queue=[]; stopListening(); chat.innerHTML=""; updateProgress(); addMsg("Sag 'Hey PALLAS' um zu starten.","pallas"); });
+        precSwitch.addEventListener("click", ()=>{ precision=!precision; precSwitch.classList.toggle("on", precision); });
+        // Ready-Ping vorwärmen beim ersten Klick
+        micBtn.addEventListener("click", ()=>{ try{ readyPing.load(); if(readyPing.currentTime===0){ readyPing.play().then(()=>readyPing.pause()).catch(()=>{}); } }catch(e){} });
+      } else {
+        controls.innerHTML = `
+          <div class="left" style="flex:1; gap:8px;">
+            <input id="textInput" class="textinput" placeholder="Befehl eingeben … (z. B. 'weiter', 'nochmal', 'Pallas …')" />
+            <button id="sendBtn" class="iconbtn" aria-label="Senden" title="Senden">➡️</button>
+            <button id="reset" class="iconbtn" aria-label="Reset" title="Zurücksetzen">🔄</button>
+          </div>`;
+        const sendBtn=document.getElementById("sendBtn");
+        const resetBtn=document.getElementById("reset");
+        const input=document.getElementById("textInput");
+        sendBtn.addEventListener("click", ()=>{
+          const val=input.value.trim();
+          if(!val) return;
+          addMsg(prettify(val),"user");
+          handleCommand(val);
+          input.value="";
+          input.focus();
+        });
+        input.addEventListener("keydown",(e)=>{ if(e.key==="Enter"){ sendBtn.click(); } });
+        resetBtn.addEventListener("click", ()=>{ idx=0; queue=[]; chat.innerHTML=""; updateProgress(); addMsg("Tippe 'Hey PALLAS' um zu starten.","pallas"); });
+      }
+    }
 
-    /* ---------- Init ---------- */
+    /* ======= Init ======= */
     updateProgress();
-    addMsg("Sag 'Hey PALLAS' um zu starten.", "pallas");
-
-    // Ready-Ping anwärmen beim ersten User-Klick (Mikro)
-    micBtn.addEventListener("click", ()=>{
-      try {
-        readyPing.load();
-        // optional „nudgen“ (nur einmal): kurz starten & sofort pausieren
-        if (readyPing.currentTime === 0) {
-          readyPing.play().then(()=>readyPing.pause()).catch(()=>{});
-        }
-      } catch(e) {}
-    }, { once:false });
+    addMsg("Sag 'Hey PALLAS' um zu starten.","pallas");
+    buildControls();
+    diagnose();
   </script>
 </body>
 </html>
